@@ -1,10 +1,12 @@
 from datetime import datetime
-from enum import Enum
 
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.sql import func
+
+from ..dtos.artifact import ArtifactType
+from ..dtos.job import JobStatus
 
 
 class Base(DeclarativeBase):
@@ -27,14 +29,6 @@ class Document(Base):
     created_at: Mapped[datetime] = mapped_column(
         default=func.now(), nullable=False
     )
-
-
-class JobStatus(str, Enum):
-    CREATED = "created"  # Job record exists
-    QUEUED = "queued"  # Job record enqueued in message queue
-    STARTED = "started"  # worker picked up job
-    COMPLETED = "completed"  # worker success
-    FAILED = "failed"  # worker failed
 
 
 class Job(Base):
@@ -75,7 +69,10 @@ class Artifact(Base):
     document_id: Mapped[int] = mapped_column(
         ForeignKey("documents.id"), nullable=False
     )
-    type: Mapped[str] = mapped_column(nullable=False)
+    artifact_type: Mapped[ArtifactType] = mapped_column(
+        SQLEnum(ArtifactType, name="artifact_type_enum"),
+        nullable=False,
+    )
     object_key: Mapped[str] = mapped_column(unique=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         default=func.now(), nullable=False
