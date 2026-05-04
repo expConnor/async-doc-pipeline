@@ -9,6 +9,7 @@ class ArtifactType(str, Enum):
 
 @dataclass(frozen=True)
 class ArtifactDTO:
+    id: int
     job_id: int
     document_id: int
     artifact_type: ArtifactType
