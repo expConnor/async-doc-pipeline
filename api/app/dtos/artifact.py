@@ -19,13 +19,8 @@ class ArtifactDTO:
 
 @dataclass(frozen=True)
 class ArtifactWithUrlDTO:
-    id: int
-    job_id: int
-    document_id: int
-    artifact_type: ArtifactType
-    object_key: str
+    artifact: ArtifactDTO
     download_url: str
-    created_at: datetime
 
 
 @dataclass(frozen=True)

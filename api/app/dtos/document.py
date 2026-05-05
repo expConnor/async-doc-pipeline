@@ -12,11 +12,8 @@ class DocumentDTO:
 
 @dataclass(frozen=True)
 class DocumentWithUploadUrlDTO:
-    id: int
-    object_key: str
+    document: DocumentDTO
     upload_url: str
-    account_id: int
-    created_at: datetime
 
 
 @dataclass(frozen=True)
