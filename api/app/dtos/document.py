@@ -18,5 +18,6 @@ class DocumentWithUploadUrlDTO:
 
 @dataclass(frozen=True)
 class CreateDocumentDTO:
+    object_key: str
     file_name: str
     account_id: int
