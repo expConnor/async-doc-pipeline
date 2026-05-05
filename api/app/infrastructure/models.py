@@ -2,6 +2,7 @@ from datetime import datetime
 
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import ForeignKey
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -45,6 +46,9 @@ class Job(Base):
         default=JobStatus.CREATED,
         server_default="created",
         nullable=False,
+    )
+    artifact_types: Mapped[list[ArtifactType]] = mapped_column(
+        ARRAY(SQLEnum(ArtifactType, name="artifact_type_enum"))
     )
     attempts: Mapped[int] = mapped_column(
         default=0, server_default="0", nullable=False
