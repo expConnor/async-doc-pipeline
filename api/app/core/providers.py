@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 
 async def get_db_session() -> AsyncIterator[AsyncSession]:
-    async for session in container.session():
+    async with container.open_session() as session:
         yield session
 
 

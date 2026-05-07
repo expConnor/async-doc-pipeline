@@ -1,3 +1,4 @@
+import contextlib
 from collections.abc import AsyncIterator
 
 from app.core.config import get_settings
@@ -31,7 +32,8 @@ class Container:
             bind=self._engine, expire_on_commit=False
         )
 
-    async def session(self) -> AsyncIterator[AsyncSession]:
+    @contextlib.asynccontextmanager
+    async def open_session(self) -> AsyncIterator[AsyncSession]:
         session = self._session_factory()
         try:
             yield session
