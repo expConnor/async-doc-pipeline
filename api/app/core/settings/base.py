@@ -28,6 +28,8 @@ class BaseAppSettings(BaseSettings):
     rabbitmq_password: str
     rabbitmq_host: str = "localhost"
     rabbitmq_port: int = 5672
+    rabbitmq_queue: str = "jobs"
+    backpressure_threshold: int = 1000
 
     s3_bucket: str
     aws_region: str = "us-east-1"
