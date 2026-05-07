@@ -1,8 +1,11 @@
+from app.api.middleware import LoggingMiddleware
+from app.api.routes import documents, health, jobs
 from fastapi import FastAPI
 
 app = FastAPI()
 
+app.add_middleware(LoggingMiddleware)
 
-@app.get("/health")
-def health_status():
-    return {"status": "healthy"}
+app.include_router(health.router)
+app.include_router(documents.router)
+app.include_router(jobs.router)
