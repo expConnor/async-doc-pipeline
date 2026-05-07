@@ -17,6 +17,14 @@ from app.interfaces.repositories.account import IAccountRepository
 from app.interfaces.repositories.artifact import IArtifactRepository
 from app.interfaces.repositories.document import IDocumentRepository
 from app.interfaces.repositories.job import IJobRepository
+from app.interfaces.services.account import IAccountService
+from app.interfaces.services.artifact import IArtifactService
+from app.interfaces.services.document import IDocumentService
+from app.interfaces.services.job import IJobService
+from app.services.account import AccountService
+from app.services.artifact import ArtifactService
+from app.services.document import DocumentService
+from app.services.job import JobService
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -63,6 +71,28 @@ class Container:
         return S3StorageService(
             region=self._settings.aws_region,
             bucket=self._settings.s3_bucket,
+        )
+
+    def account_service(self) -> IAccountService:
+        return AccountService(account_repo=self.account_repository())
+
+    def document_service(self) -> IDocumentService:
+        return DocumentService(
+            document_repo=self.document_repository(),
+            storage=self.storage_service(),
+        )
+
+    def job_service(self) -> IJobService:
+        return JobService(
+            job_repo=self.job_repository(),
+            messaging=self.messaging_service(),
+            queue=self._settings.rabbitmq_queue,
+        )
+
+    def artifact_service(self) -> IArtifactService:
+        return ArtifactService(
+            artifact_repo=self.artifact_repository(),
+            storage=self.storage_service(),
         )
 
 
