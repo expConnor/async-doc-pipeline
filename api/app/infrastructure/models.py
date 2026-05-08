@@ -44,7 +44,7 @@ class Job(Base):
     status: Mapped[JobStatus] = mapped_column(
         SQLEnum(JobStatus, name="job_status_enum"),
         default=JobStatus.CREATED,
-        server_default="created",
+        server_default="CREATED",
         nullable=False,
     )
     artifact_types: Mapped[list[ArtifactType]] = mapped_column(
