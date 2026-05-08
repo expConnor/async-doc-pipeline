@@ -1,3 +1,5 @@
+import json
+
 from app.api.middleware import LoggingMiddleware
 from app.api.routes import documents, health, jobs
 from app.core.exceptions import AppException
@@ -30,10 +32,11 @@ def _error_body(
 async def internal_exception_handler(
     request: Request, exc: AppException
 ) -> JSONResponse:
+    status_code = exc.get_status_code()
     return JSONResponse(
-        status_code=exc.get_status_code(),
+        status_code=status_code,
         content=_error_body(
-            status_code=exc.get_status_code(),
+            status_code=status_code,
             type_=type(exc).__name__,
             message=exc.get_message(),
             errors=exc.get_errors(),
@@ -45,13 +48,16 @@ async def internal_exception_handler(
 async def http_exception_handler(
     request: Request, exc: HTTPException
 ) -> JSONResponse:
-    detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+    if isinstance(exc.detail, str):
+        message = exc.detail
+    else:
+        message = json.dumps(exc.detail)
     return JSONResponse(
         status_code=exc.status_code,
         content=_error_body(
             status_code=exc.status_code,
             type_="HTTPException",
-            message=detail,
+            message=message,
             errors={},
         ),
     )
