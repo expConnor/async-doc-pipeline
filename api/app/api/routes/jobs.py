@@ -1,7 +1,6 @@
 from app.api.schemas.requests.jobs import ProcessDocumentRequest
 from app.api.schemas.responses.jobs import JobResponse
 from app.core.dependencies import CurrentAccount, DBSession, JobServiceDep
-from app.core.errors import get_or_raise
 from app.core.exceptions import JobNotFoundException
 from app.dtos.job import CreateJobDTO, JobDTO
 from fastapi import APIRouter
@@ -54,8 +53,7 @@ async def get_job(
     session: DBSession,
     job_service: JobServiceDep,
 ) -> JobResponse:
-    job = await get_or_raise(
-        job_service.get(session, job_id, account.id),
-        JobNotFoundException(),
-    )
+    job = await job_service.get(session, job_id, account.id)
+    if job is None:
+        raise JobNotFoundException()
     return _to_response(job)
