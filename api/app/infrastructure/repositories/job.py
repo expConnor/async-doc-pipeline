@@ -1,8 +1,10 @@
 from datetime import datetime
 
 from sqlalchemy import insert, select, update
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...core.exceptions import DatabaseException
 from ...dtos.job import CreateJobDTO, JobDTO, JobStatus
 from ...infrastructure.models import Job
 from ...interfaces.repositories.job import IJobRepository
@@ -16,47 +18,58 @@ _STATUS_TIMESTAMP: dict[JobStatus, str] = {
 
 class JobRepository(IJobRepository):
     async def create(self, session: AsyncSession, dto: CreateJobDTO) -> JobDTO:
-        query = (
-            insert(Job)
-            .values(
-                account_id=dto.account_id,
-                document_id=dto.document_id,
-                artifact_types=dto.artifact_types,
-                status=JobStatus.CREATED,
-                created_at=datetime.now(),
+        try:
+            query = (
+                insert(Job)
+                .values(
+                    account_id=dto.account_id,
+                    document_id=dto.document_id,
+                    artifact_types=dto.artifact_types,
+                    status=JobStatus.CREATED,
+                    created_at=datetime.now(),
+                )
+                .returning(Job)
             )
-            .returning(Job)
-        )
-
-        result = await session.execute(query)
-        return self._to_dto(result.scalar_one())
+            result = await session.execute(query)
+            return self._to_dto(result.scalar_one())
+        except SQLAlchemyError as e:
+            raise DatabaseException() from e
 
     async def get_by_id(
         self, session: AsyncSession, job_id: int, account_id: int
     ) -> JobDTO | None:
-        query = select(Job).where(
-            Job.id == job_id,
-            Job.account_id == account_id,
-        )
-        if job := await session.scalar(query):
-            return self._to_dto(job)
-        return None
+        try:
+            query = select(Job).where(
+                Job.id == job_id,
+                Job.account_id == account_id,
+            )
+            if job := await session.scalar(query):
+                return self._to_dto(job)
+            return None
+        except SQLAlchemyError as e:
+            raise DatabaseException() from e
 
     async def update_status(
         self, session: AsyncSession, job_id: int, status: JobStatus
     ) -> JobDTO:
-        values: dict = {"status": status}
-        if timestamp_col := _STATUS_TIMESTAMP.get(status):
-            values[timestamp_col] = datetime.now()
-        if status == JobStatus.STARTED:
-            values["last_attempt_at"] = datetime.now()
-            values["attempts"] = Job.attempts + 1
+        try:
+            values: dict = {"status": status}
+            if timestamp_col := _STATUS_TIMESTAMP.get(status):
+                values[timestamp_col] = datetime.now()
+            if status == JobStatus.STARTED:
+                values["last_attempt_at"] = datetime.now()
+                values["attempts"] = Job.attempts + 1
 
-        query = (
-            update(Job).where(Job.id == job_id).values(**values).returning(Job)
-        )
-        result = await session.execute(query)
-        return self._to_dto(result.scalar_one())
+            query = (
+                update(Job)
+                .where(Job.id == job_id)
+                .values(**values)
+                .returning(Job)
+            )
+            result = await session.execute(query)
+            return self._to_dto(result.scalar_one())
+        except SQLAlchemyError as e:
+            raise DatabaseException() from e
 
     @staticmethod
     def _to_dto(model: Job) -> JobDTO:
