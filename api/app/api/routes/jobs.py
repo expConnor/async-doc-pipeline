@@ -1,8 +1,10 @@
 from app.api.schemas.requests.jobs import ProcessDocumentRequest
 from app.api.schemas.responses.jobs import JobResponse
 from app.core.dependencies import CurrentAccount, DBSession, JobServiceDep
+from app.core.errors import get_or_raise
+from app.core.exceptions import JobNotFoundException
 from app.dtos.job import CreateJobDTO, JobDTO
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
 router = APIRouter()
 
@@ -41,10 +43,7 @@ async def process_document(
         document_id=document_id,
         artifact_types=body.artifact_types,
     )
-    try:
-        job = await job_service.create(session, dto)
-    except ValueError as e:
-        raise HTTPException(status_code=409, detail=str(e))
+    job = await job_service.create(session, dto)
     return _to_response(job)
 
 
@@ -55,7 +54,8 @@ async def get_job(
     session: DBSession,
     job_service: JobServiceDep,
 ) -> JobResponse:
-    job = await job_service.get(session, job_id, account.id)
-    if job is None:
-        raise HTTPException(status_code=404, detail="Job not found")
+    job = await get_or_raise(
+        job_service.get(session, job_id, account.id),
+        JobNotFoundException(),
+    )
     return _to_response(job)
