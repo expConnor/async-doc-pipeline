@@ -6,6 +6,7 @@ from datetime import datetime
 class DocumentDTO:
     id: int
     object_key: str
+    file_name: str
     account_id: int
     created_at: datetime
 

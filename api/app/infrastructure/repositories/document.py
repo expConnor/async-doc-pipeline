@@ -19,6 +19,7 @@ class DocumentRepository(IDocumentRepository):
                 insert(Document)
                 .values(
                     object_key=dto.object_key,
+                    file_name=dto.file_name,
                     account_id=dto.account_id,
                     created_at=datetime.now(),
                 )
@@ -48,6 +49,7 @@ class DocumentRepository(IDocumentRepository):
         return DocumentDTO(
             id=model.id,
             object_key=model.object_key,
+            file_name=model.file_name,
             account_id=model.account_id,
             created_at=model.created_at,
         )

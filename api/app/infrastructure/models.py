@@ -24,6 +24,7 @@ class Document(Base):
     __tablename__ = "documents"
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     object_key: Mapped[str] = mapped_column(unique=True, nullable=False)
+    file_name: Mapped[str] = mapped_column(nullable=False, server_default="''")
     account_id: Mapped[int] = mapped_column(
         ForeignKey("accounts.id"), nullable=False
     )
