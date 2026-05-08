@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.core.exceptions import (
+    DocumentNotFoundException,
+    DocumentNotUploadedException,
+)
 from app.dtos.job import CreateJobDTO, JobDTO, JobStatus
 from app.interfaces.infrastructure.messaging import IMessagingService
 from app.interfaces.infrastructure.storage import IStorageService
@@ -35,9 +39,9 @@ class JobService(IJobService):
             session, dto.document_id, dto.account_id
         )
         if document is None:
-            raise ValueError("Document not found")
+            raise DocumentNotFoundException()
         if not await self._storage.object_exists(document.object_key):
-            raise ValueError("Document has not been uploaded")
+            raise DocumentNotUploadedException()
 
         job = await self._repo.create(session, dto)
         await self._messaging.enqueue(
