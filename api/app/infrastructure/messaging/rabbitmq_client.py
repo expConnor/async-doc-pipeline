@@ -3,6 +3,7 @@ import json
 import aio_pika
 from aio_pika.abc import AbstractRobustConnection
 
+from ...core.exceptions import QueueException
 from ...interfaces.infrastructure.messaging import IMessagingService
 
 
@@ -17,16 +18,19 @@ class RabbitMQMessagingService(IMessagingService):
         return self._connection
 
     async def enqueue(self, queue: str, payload: dict) -> None:
-        connection = await self._get_connection()
-        async with connection.channel() as channel:
-            await channel.declare_queue(queue, durable=True)
-            await channel.default_exchange.publish(
-                aio_pika.Message(
-                    body=json.dumps(payload).encode(),
-                    delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
-                ),
-                routing_key=queue,
-            )
+        try:
+            connection = await self._get_connection()
+            async with connection.channel() as channel:
+                await channel.declare_queue(queue, durable=True)
+                await channel.default_exchange.publish(
+                    aio_pika.Message(
+                        body=json.dumps(payload).encode(),
+                        delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
+                    ),
+                    routing_key=queue,
+                )
+        except aio_pika.exceptions.AMQPError as e:
+            raise QueueException() from e
 
     async def queue_depth(self, queue: str) -> int:
         connection = await self._get_connection()
