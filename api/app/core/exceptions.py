@@ -55,6 +55,11 @@ class BackpressureException(AppException):
     _message = "Queue capacity exceeded. Retry later."
 
 
+class ActiveJobExistsException(AppException):
+    _status_code = 409
+    _message = "An active job already exists for this document."
+
+
 class StorageException(AppException):
     _status_code = 503
     _message = "Storage service unavailable."

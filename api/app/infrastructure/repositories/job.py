@@ -16,6 +16,8 @@ _STATUS_TIMESTAMP: dict[JobStatus, str] = {
     JobStatus.FAILED: "failed_at",
 }
 
+_ACTIVE_STATUSES = {JobStatus.CREATED, JobStatus.QUEUED, JobStatus.STARTED}
+
 
 class JobRepository(IJobRepository):
     async def create(self, session: AsyncSession, dto: CreateJobDTO) -> JobDTO:
@@ -69,6 +71,21 @@ class JobRepository(IJobRepository):
             )
             result = await session.execute(query)
             return self._to_dto(result.scalar_one())
+        except SQLAlchemyError as e:
+            raise DatabaseException() from e
+
+    async def get_active_for_document(
+        self, session: AsyncSession, document_id: int, account_id: int
+    ) -> JobDTO | None:
+        try:
+            query = select(Job).where(
+                Job.document_id == document_id,
+                Job.account_id == account_id,
+                Job.status.in_(_ACTIVE_STATUSES),
+            )
+            if job := await session.scalar(query):
+                return self._to_dto(job)
+            return None
         except SQLAlchemyError as e:
             raise DatabaseException() from e
 

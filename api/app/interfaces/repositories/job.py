@@ -17,3 +17,8 @@ class IJobRepository(ABC):
     async def update_status(
         self, session: Any, job_id: int, status: JobStatus
     ) -> JobDTO: ...
+
+    @abstractmethod
+    async def get_active_for_document(
+        self, session: Any, document_id: int, account_id: int
+    ) -> JobDTO | None: ...
