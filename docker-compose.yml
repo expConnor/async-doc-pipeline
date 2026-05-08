@@ -4,7 +4,7 @@ services:
     container_name: doc-pipeline-api
     command: uvicorn app.app:app --host 0.0.0.0 --port 8080 --reload
     environment:
-      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_HOST: postgres
     env_file:
       - .env
     ports:
