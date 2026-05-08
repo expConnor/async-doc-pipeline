@@ -1,6 +1,7 @@
 import asyncio
 
 import boto3
+from botocore.exceptions import ClientError
 
 from ...interfaces.infrastructure.storage import IStorageService
 
@@ -25,3 +26,16 @@ class S3StorageService(IStorageService):
             Params={"Bucket": self._bucket, "Key": object_key},
             ExpiresIn=3600,
         )
+
+    async def object_exists(self, object_key: str) -> bool:
+        try:
+            await asyncio.to_thread(
+                self._client.head_object,
+                Bucket=self._bucket,
+                Key=object_key,
+            )
+            return True
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "404":
+                return False
+            raise

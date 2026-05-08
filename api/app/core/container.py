@@ -85,7 +85,9 @@ class Container:
     def job_service(self) -> IJobService:
         return JobService(
             job_repo=self.job_repository(),
+            document_repo=self.document_repository(),
             messaging=self.messaging_service(),
+            storage=self.storage_service(),
             queue=self._settings.rabbitmq_queue,
         )
 

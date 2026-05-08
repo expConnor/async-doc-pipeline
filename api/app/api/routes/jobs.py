@@ -41,7 +41,10 @@ async def process_document(
         document_id=document_id,
         artifact_types=body.artifact_types,
     )
-    job = await job_service.create(session, dto)
+    try:
+        job = await job_service.create(session, dto)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
     return _to_response(job)
 
 
