@@ -89,6 +89,7 @@ class Container:
             messaging=self.messaging_service(),
             storage=self.storage_service(),
             queue=self._settings.rabbitmq_queue,
+            backpressure_threshold=self._settings.backpressure_threshold,
         )
 
     def artifact_service(self) -> IArtifactService:

@@ -50,6 +50,11 @@ class JobNotFoundException(AppException):
     _message = "Job not found."
 
 
+class BackpressureException(AppException):
+    _status_code = 429
+    _message = "Queue capacity exceeded. Retry later."
+
+
 class StorageException(AppException):
     _status_code = 503
     _message = "Storage service unavailable."

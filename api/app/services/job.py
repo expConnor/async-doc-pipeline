@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.core.exceptions import (
+    BackpressureException,
     DocumentNotFoundException,
     DocumentNotUploadedException,
 )
@@ -22,12 +23,14 @@ class JobService(IJobService):
         messaging: IMessagingService,
         storage: IStorageService,
         queue: str,
+        backpressure_threshold: int,
     ) -> None:
         self._repo = job_repo
         self._document_repo = document_repo
         self._messaging = messaging
         self._storage = storage
         self._queue = queue
+        self._backpressure_threshold = backpressure_threshold
 
     async def get(
         self, session: Any, job_id: int, account_id: int
@@ -42,6 +45,10 @@ class JobService(IJobService):
             raise DocumentNotFoundException()
         if not await self._storage.object_exists(document.object_key):
             raise DocumentNotUploadedException()
+
+        depth = await self._messaging.queue_depth(self._queue)
+        if depth >= self._backpressure_threshold:
+            raise BackpressureException()
 
         job = await self._repo.create(session, dto)
         await self._messaging.enqueue(
