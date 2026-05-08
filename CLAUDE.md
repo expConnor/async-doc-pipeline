@@ -34,23 +34,27 @@ Local dev runs the same stack via Docker Compose with local Postgres and RabbitM
   - Processing latency: `completed_at - started_at`
   - Failure rates via `attempts` / `max_attempts` / `error_message`
 - **Auth via hashed API keys.** Stored in `accounts.api_key_hash`, passed as `X-API-Key` header.
+- **Typed exception hierarchy.** Services and infrastructure raise domain exceptions (`DocumentNotFoundException`, `JobNotFoundException`, `StorageException`, `QueueException`, `DatabaseException`) defined in `app/core/exceptions.py`. Three handlers in `app.py` convert these to a structured JSON error envelope — never bare 500s. Infrastructure errors use `raise X() from e` to preserve cause chains.
 
 ## Folder Structure
 
 ```
 doc-pipeline/
 ├── api/
-│   ├── app.py                  # FastAPI entry point
-│   ├── core/                   # Config, logging, DI, security
-│   ├── api/                    # HTTP layer: routes, Pydantic schemas, middleware
-│   ├── services/               # Business logic (job creation, backpressure, upload)
-│   ├── interfaces/             # Abstract ports (repositories, services)
-│   ├── infrastructure/         # Concrete implementations (ORM, RabbitMQ, S3)
-│   │   ├── models.py           # SQLAlchemy ORM models
-│   │   ├── repositories/
-│   │   ├── messaging/          # RabbitMQ client
-│   │   └── storage/            # S3 client (presigned URLs)
-│   └── dtos/                   # Domain-level data structures (not HTTP schemas)
+│   └── app/
+│       ├── app.py                  # FastAPI entry point + exception handlers
+│       ├── core/                   # Config, logging, DI, security, exceptions
+│       │   ├── exceptions.py       # Typed exception hierarchy (AppException + subclasses)
+│       │   └── container.py        # Dependency wiring
+│       ├── api/                    # HTTP layer: routes, Pydantic schemas, middleware
+│       ├── services/               # Business logic (job creation, backpressure, upload)
+│       ├── interfaces/             # Abstract ports (repositories, services)
+│       ├── infrastructure/         # Concrete implementations (ORM, RabbitMQ, S3)
+│       │   ├── models.py           # SQLAlchemy ORM models
+│       │   ├── repositories/
+│       │   ├── messaging/          # RabbitMQ client
+│       │   └── storage/            # S3 client (presigned URLs)
+│       └── dtos/                   # Domain-level data structures (not HTTP schemas)
 ├── worker/                     # (not yet implemented)
 ├── infrastructure/             # AWS CDK (ECS, ALB, RDS, MQ, S3, VPC, IAM)
 ├── tests/
