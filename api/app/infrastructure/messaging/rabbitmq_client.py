@@ -33,7 +33,10 @@ class RabbitMQMessagingService(IMessagingService):
             raise QueueException() from e
 
     async def queue_depth(self, queue: str) -> int:
-        connection = await self._get_connection()
-        async with connection.channel() as channel:
-            declared = await channel.declare_queue(queue, passive=True)
-            return declared.declaration_result.message_count or 0
+        try:
+            connection = await self._get_connection()
+            async with connection.channel() as channel:
+                declared = await channel.declare_queue(queue, passive=True)
+                return declared.declaration_result.message_count or 0
+        except aio_pika.exceptions.AMQPError as e:
+            raise QueueException() from e
