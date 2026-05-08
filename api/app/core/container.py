@@ -95,6 +95,7 @@ class Container:
         return ArtifactService(
             artifact_repo=self.artifact_repository(),
             storage=self.storage_service(),
+            document_repo=self.document_repository(),
         )
 
 
