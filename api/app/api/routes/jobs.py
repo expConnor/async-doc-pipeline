@@ -22,6 +22,7 @@ def _to_response(job: JobDTO) -> JobResponse:
         started_at=job.started_at,
         completed_at=job.completed_at,
         last_attempt_at=job.last_attempt_at,
+        failed_at=job.failed_at,
     )
 
 

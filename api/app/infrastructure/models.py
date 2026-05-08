@@ -64,6 +64,7 @@ class Job(Base):
     started_at: Mapped[datetime | None] = mapped_column(nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(nullable=True)
     last_attempt_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    failed_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
 
 class Artifact(Base):

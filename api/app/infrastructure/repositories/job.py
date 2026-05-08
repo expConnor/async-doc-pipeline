@@ -13,6 +13,7 @@ _STATUS_TIMESTAMP: dict[JobStatus, str] = {
     JobStatus.QUEUED: "queued_at",
     JobStatus.STARTED: "started_at",
     JobStatus.COMPLETED: "completed_at",
+    JobStatus.FAILED: "failed_at",
 }
 
 
@@ -87,4 +88,5 @@ class JobRepository(IJobRepository):
             started_at=model.started_at,
             completed_at=model.completed_at,
             last_attempt_at=model.last_attempt_at,
+            failed_at=model.failed_at,
         )

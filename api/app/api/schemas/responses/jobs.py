@@ -18,3 +18,4 @@ class JobResponse(BaseModel):
     started_at: datetime | None
     completed_at: datetime | None
     last_attempt_at: datetime | None
+    failed_at: datetime | None
