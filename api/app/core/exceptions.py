@@ -6,7 +6,7 @@ from typing import Any
 class AppException(Exception):
     _status_code: int = 500
     _message: str = "An unexpected error occurred."
-    _errors: dict[str, Any] = {}
+    _errors: dict[str, Any] | None = None
 
     def __init__(
         self,
@@ -14,18 +14,25 @@ class AppException(Exception):
         message: str | None = None,
         errors: dict[str, Any] | None = None,
     ) -> None:
+        super().__init__(message or self._message)
         self.status_code = status_code
         self.message = message
         self.errors = errors
 
     def get_status_code(self) -> int:
-        return self.status_code or self._status_code
+        return (
+            self.status_code
+            if self.status_code is not None
+            else self._status_code
+        )
 
     def get_message(self) -> str:
-        return self.message or self._message
+        return self.message if self.message is not None else self._message
 
     def get_errors(self) -> dict[str, Any]:
-        return self.errors or self._errors
+        if self.errors is not None:
+            return self.errors
+        return self._errors if self._errors is not None else {}
 
 
 class DocumentNotFoundException(AppException):
