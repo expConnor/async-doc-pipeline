@@ -4,6 +4,7 @@ from app.api.schemas.requests.documents import CreateDocumentRequest
 from app.api.schemas.responses.documents import (
     ArtifactResponse,
     CreateDocumentResponse,
+    DocumentResponse,
     ListArtifactsResponse,
 )
 from app.core.dependencies import (
@@ -12,6 +13,7 @@ from app.core.dependencies import (
     DBSession,
     DocumentServiceDep,
 )
+from app.core.exceptions import DocumentNotFoundException
 from app.dtos.document import CreateDocumentDTO
 from fastapi import APIRouter
 
@@ -37,6 +39,23 @@ async def create_document(
     return CreateDocumentResponse(
         document_id=result.document.id,
         upload_url=result.upload_url,
+    )
+
+
+@router.get("/documents/{document_id}", response_model=DocumentResponse)
+async def get_document(
+    document_id: int,
+    account: CurrentAccount,
+    session: DBSession,
+    document_service: DocumentServiceDep,
+) -> DocumentResponse:
+    document = await document_service.get(session, document_id, account.id)
+    if document is None:
+        raise DocumentNotFoundException()
+    return DocumentResponse(
+        id=document.id,
+        file_name=document.file_name,
+        created_at=document.created_at,
     )
 
 

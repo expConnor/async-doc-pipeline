@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.dtos.document import CreateDocumentDTO, DocumentWithUploadUrlDTO
+from app.dtos.document import (
+    CreateDocumentDTO,
+    DocumentDTO,
+    DocumentWithUploadUrlDTO,
+)
 from app.interfaces.infrastructure.storage import IStorageService
 from app.interfaces.repositories.document import IDocumentRepository
 from app.interfaces.services.document import IDocumentService
@@ -27,3 +31,8 @@ class DocumentService(IDocumentService):
         return DocumentWithUploadUrlDTO(
             document=document, upload_url=upload_url
         )
+
+    async def get(
+        self, session: Any, document_id: int, account_id: int
+    ) -> DocumentDTO | None:
+        return await self._repo.get_by_id(session, document_id, account_id)
