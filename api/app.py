@@ -1,11 +1,12 @@
 import json
 
-from app.api.middleware import LoggingMiddleware
-from app.api.routes import documents, health, jobs
-from app.core.exceptions import AppException
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+
+from api.middleware import LoggingMiddleware
+from api.routes import documents, health, jobs
+from shared.core.exceptions import AppException
 
 app = FastAPI()
 

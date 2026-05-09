@@ -1,20 +1,21 @@
 from typing import Annotated
 
-from app.core.providers import (
+from fastapi import Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from api.core.providers import (
     get_account_service,
     get_artifact_service,
     get_db_session,
     get_document_service,
     get_job_service,
 )
-from app.core.security import api_key_required
-from app.dtos.account import AccountDTO
-from app.interfaces.services.account import IAccountService
-from app.interfaces.services.artifact import IArtifactService
-from app.interfaces.services.document import IDocumentService
-from app.interfaces.services.job import IJobService
-from fastapi import Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
+from api.core.security import api_key_required
+from shared.dtos.account import AccountDTO
+from shared.interfaces.services.account import IAccountService
+from shared.interfaces.services.artifact import IArtifactService
+from shared.interfaces.services.document import IDocumentService
+from shared.interfaces.services.job import IJobService
 
 DBSession = Annotated[AsyncSession, Depends(get_db_session)]
 AccountServiceDep = Annotated[IAccountService, Depends(get_account_service)]

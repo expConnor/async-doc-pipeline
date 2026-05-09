@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.dtos.document import (
+from shared.dtos.document import (
     CreateDocumentDTO,
     DocumentDTO,
     DocumentWithUploadUrlDTO,
 )
-from app.interfaces.infrastructure.storage import IStorageService
-from app.interfaces.repositories.document import IDocumentRepository
-from app.interfaces.services.document import IDocumentService
+from shared.interfaces.infrastructure.storage import IStorageService
+from shared.interfaces.repositories.document import IDocumentRepository
+from shared.interfaces.services.document import IDocumentService
 
 
 class DocumentService(IDocumentService):

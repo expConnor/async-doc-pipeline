@@ -1,35 +1,36 @@
 import contextlib
 from collections.abc import AsyncIterator
 
-from app.core.config import get_settings
-from app.core.settings.base import BaseAppSettings
-from app.infrastructure.messaging.rabbitmq_client import (
-    RabbitMQMessagingService,
-)
-from app.infrastructure.repositories.account import AccountRepository
-from app.infrastructure.repositories.artifact import ArtifactRepository
-from app.infrastructure.repositories.document import DocumentRepository
-from app.infrastructure.repositories.job import JobRepository
-from app.infrastructure.storage.s3_client import S3StorageService
-from app.interfaces.infrastructure.messaging import IMessagingService
-from app.interfaces.infrastructure.storage import IStorageService
-from app.interfaces.repositories.account import IAccountRepository
-from app.interfaces.repositories.artifact import IArtifactRepository
-from app.interfaces.repositories.document import IDocumentRepository
-from app.interfaces.repositories.job import IJobRepository
-from app.interfaces.services.account import IAccountService
-from app.interfaces.services.artifact import IArtifactService
-from app.interfaces.services.document import IDocumentService
-from app.interfaces.services.job import IJobService
-from app.services.account import AccountService
-from app.services.artifact import ArtifactService
-from app.services.document import DocumentService
-from app.services.job import JobService
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
+
+from api.services.account import AccountService
+from api.services.artifact import ArtifactService
+from api.services.document import DocumentService
+from api.services.job import JobService
+from shared.core.config import get_settings
+from shared.core.settings.base import BaseAppSettings
+from shared.infrastructure.messaging.rabbitmq_client import (
+    RabbitMQMessagingService,
+)
+from shared.infrastructure.repositories.account import AccountRepository
+from shared.infrastructure.repositories.artifact import ArtifactRepository
+from shared.infrastructure.repositories.document import DocumentRepository
+from shared.infrastructure.repositories.job import JobRepository
+from shared.infrastructure.storage.s3_client import S3StorageService
+from shared.interfaces.infrastructure.messaging import IMessagingService
+from shared.interfaces.infrastructure.storage import IStorageService
+from shared.interfaces.repositories.account import IAccountRepository
+from shared.interfaces.repositories.artifact import IArtifactRepository
+from shared.interfaces.repositories.document import IDocumentRepository
+from shared.interfaces.repositories.job import IJobRepository
+from shared.interfaces.services.account import IAccountService
+from shared.interfaces.services.artifact import IArtifactService
+from shared.interfaces.services.document import IDocumentService
+from shared.interfaces.services.job import IJobService
 
 
 class Container:

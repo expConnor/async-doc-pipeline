@@ -1,9 +1,10 @@
-from app.api.schemas.requests.jobs import ProcessDocumentRequest
-from app.api.schemas.responses.jobs import JobResponse
-from app.core.dependencies import CurrentAccount, DBSession, JobServiceDep
-from app.core.exceptions import JobNotFoundException
-from app.dtos.job import CreateJobDTO, JobDTO
 from fastapi import APIRouter
+
+from api.core.dependencies import CurrentAccount, DBSession, JobServiceDep
+from api.schemas.requests.jobs import ProcessDocumentRequest
+from api.schemas.responses.jobs import JobResponse
+from shared.core.exceptions import JobNotFoundException
+from shared.dtos.job import CreateJobDTO, JobDTO
 
 router = APIRouter()
 

@@ -2,18 +2,18 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.core.exceptions import (
+from shared.core.exceptions import (
     ActiveJobExistsException,
     BackpressureException,
     DocumentNotFoundException,
     DocumentNotUploadedException,
 )
-from app.dtos.job import CreateJobDTO, JobDTO, JobStatus
-from app.interfaces.infrastructure.messaging import IMessagingService
-from app.interfaces.infrastructure.storage import IStorageService
-from app.interfaces.repositories.document import IDocumentRepository
-from app.interfaces.repositories.job import IJobRepository
-from app.interfaces.services.job import IJobService
+from shared.dtos.job import CreateJobDTO, JobDTO, JobStatus
+from shared.interfaces.infrastructure.messaging import IMessagingService
+from shared.interfaces.infrastructure.storage import IStorageService
+from shared.interfaces.repositories.document import IDocumentRepository
+from shared.interfaces.repositories.job import IJobRepository
+from shared.interfaces.services.job import IJobService
 
 
 class JobService(IJobService):

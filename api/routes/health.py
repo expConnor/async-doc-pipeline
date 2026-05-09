@@ -1,5 +1,6 @@
-from app.api.schemas.responses.health import HealthResponse
 from fastapi import APIRouter
+
+from api.schemas.responses.health import HealthResponse
 
 router = APIRouter()
 

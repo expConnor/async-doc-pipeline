@@ -1,5 +1,6 @@
-from app.dtos.artifact import ArtifactType
 from pydantic import BaseModel
+
+from shared.dtos.artifact import ArtifactType
 
 
 class ProcessDocumentRequest(BaseModel):

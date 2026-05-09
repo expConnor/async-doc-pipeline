@@ -3,9 +3,9 @@ from __future__ import annotations
 import hashlib
 from typing import Any
 
-from app.dtos.account import AccountDTO
-from app.interfaces.repositories.account import IAccountRepository
-from app.interfaces.services.account import IAccountService
+from shared.dtos.account import AccountDTO
+from shared.interfaces.repositories.account import IAccountRepository
+from shared.interfaces.services.account import IAccountService
 
 
 class AccountService(IAccountService):

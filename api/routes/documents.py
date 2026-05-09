@@ -1,21 +1,22 @@
 from uuid import uuid4
 
-from app.api.schemas.requests.documents import CreateDocumentRequest
-from app.api.schemas.responses.documents import (
-    ArtifactResponse,
-    CreateDocumentResponse,
-    DocumentResponse,
-    ListArtifactsResponse,
-)
-from app.core.dependencies import (
+from fastapi import APIRouter
+
+from api.core.dependencies import (
     ArtifactServiceDep,
     CurrentAccount,
     DBSession,
     DocumentServiceDep,
 )
-from app.core.exceptions import DocumentNotFoundException
-from app.dtos.document import CreateDocumentDTO
-from fastapi import APIRouter
+from api.schemas.requests.documents import CreateDocumentRequest
+from api.schemas.responses.documents import (
+    ArtifactResponse,
+    CreateDocumentResponse,
+    DocumentResponse,
+    ListArtifactsResponse,
+)
+from shared.core.exceptions import DocumentNotFoundException
+from shared.dtos.document import CreateDocumentDTO
 
 router = APIRouter()
 

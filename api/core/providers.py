@@ -3,18 +3,19 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from functools import lru_cache
 
-from app.core.container import container
-from app.interfaces.infrastructure.messaging import IMessagingService
-from app.interfaces.infrastructure.storage import IStorageService
-from app.interfaces.repositories.account import IAccountRepository
-from app.interfaces.repositories.artifact import IArtifactRepository
-from app.interfaces.repositories.document import IDocumentRepository
-from app.interfaces.repositories.job import IJobRepository
-from app.interfaces.services.account import IAccountService
-from app.interfaces.services.artifact import IArtifactService
-from app.interfaces.services.document import IDocumentService
-from app.interfaces.services.job import IJobService
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from api.core.container import container
+from shared.interfaces.infrastructure.messaging import IMessagingService
+from shared.interfaces.infrastructure.storage import IStorageService
+from shared.interfaces.repositories.account import IAccountRepository
+from shared.interfaces.repositories.artifact import IArtifactRepository
+from shared.interfaces.repositories.document import IDocumentRepository
+from shared.interfaces.repositories.job import IJobRepository
+from shared.interfaces.services.account import IAccountService
+from shared.interfaces.services.artifact import IArtifactService
+from shared.interfaces.services.document import IDocumentService
+from shared.interfaces.services.job import IJobService
 
 
 async def get_db_session() -> AsyncIterator[AsyncSession]:

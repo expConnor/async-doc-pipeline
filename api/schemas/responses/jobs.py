@@ -1,8 +1,9 @@
 from datetime import datetime
 
-from app.dtos.artifact import ArtifactType
-from app.dtos.job import JobStatus
 from pydantic import BaseModel
+
+from shared.dtos.artifact import ArtifactType
+from shared.dtos.job import JobStatus
 
 
 class JobResponse(BaseModel):

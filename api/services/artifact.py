@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.core.exceptions import DocumentNotFoundException
-from app.dtos.artifact import ArtifactWithUrlDTO
-from app.interfaces.infrastructure.storage import IStorageService
-from app.interfaces.repositories.artifact import IArtifactRepository
-from app.interfaces.repositories.document import IDocumentRepository
-from app.interfaces.services.artifact import IArtifactService
+from shared.core.exceptions import DocumentNotFoundException
+from shared.dtos.artifact import ArtifactWithUrlDTO
+from shared.interfaces.infrastructure.storage import IStorageService
+from shared.interfaces.repositories.artifact import IArtifactRepository
+from shared.interfaces.repositories.document import IDocumentRepository
+from shared.interfaces.services.artifact import IArtifactService
 
 
 class ArtifactService(IArtifactService):
