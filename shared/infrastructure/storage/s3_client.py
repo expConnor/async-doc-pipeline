@@ -46,3 +46,25 @@ class S3StorageService(IStorageService):
             if e.response["Error"]["Code"] == "404":
                 return False
             raise StorageException() from e
+
+    async def get_object(self, object_key: str) -> bytes:
+        try:
+            response = await asyncio.to_thread(
+                self._client.get_object,
+                Bucket=self._bucket,
+                Key=object_key,
+            )
+            return response["Body"].read()
+        except ClientError as e:
+            raise StorageException() from e
+
+    async def put_object(self, object_key: str, content: bytes) -> None:
+        try:
+            await asyncio.to_thread(
+                self._client.put_object,
+                Bucket=self._bucket,
+                Key=object_key,
+                Body=content,
+            )
+        except ClientError as e:
+            raise StorageException() from e
