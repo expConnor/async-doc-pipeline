@@ -14,8 +14,7 @@ build/
 venv/
 env/
 
-# Poetry
-poetry.lock
+# Poetry (tracked at root for monorepo)
 
 # Environment variables
 .env
