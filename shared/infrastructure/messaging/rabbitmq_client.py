@@ -36,7 +36,10 @@ class RabbitMQMessagingService(IMessagingService):
         try:
             connection = await self._get_connection()
             async with connection.channel() as channel:
-                declared = await channel.declare_queue(queue, passive=True)
+                try:
+                    declared = await channel.declare_queue(queue, passive=True)
+                except aio_pika.exceptions.ChannelClosed:
+                    return 0
                 return declared.declaration_result.message_count or 0
         except aio_pika.exceptions.AMQPError as e:
             raise QueueException() from e
