@@ -15,7 +15,11 @@ class IJobRepository(ABC):
 
     @abstractmethod
     async def update_status(
-        self, session: Any, job_id: int, status: JobStatus
+        self,
+        session: Any,
+        job_id: int,
+        status: JobStatus,
+        error_message: str | None = None,
     ) -> JobDTO: ...
 
     @abstractmethod
