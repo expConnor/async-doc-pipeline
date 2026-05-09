@@ -53,7 +53,11 @@ class JobRepository(IJobRepository):
             raise DatabaseException() from e
 
     async def update_status(
-        self, session: AsyncSession, job_id: int, status: JobStatus
+        self,
+        session: AsyncSession,
+        job_id: int,
+        status: JobStatus,
+        error_message: str | None = None,
     ) -> JobDTO:
         try:
             values: dict = {"status": status}
@@ -62,6 +66,8 @@ class JobRepository(IJobRepository):
             if status == JobStatus.STARTED:
                 values["last_attempt_at"] = datetime.now()
                 values["attempts"] = Job.attempts + 1
+            if error_message is not None:
+                values["error_message"] = error_message
 
             query = (
                 update(Job)
