@@ -10,3 +10,9 @@ class IStorageService(ABC):
 
     @abstractmethod
     async def object_exists(self, object_key: str) -> bool: ...
+
+    @abstractmethod
+    async def get_object(self, object_key: str) -> bytes: ...
+
+    @abstractmethod
+    async def put_object(self, object_key: str, content: bytes) -> None: ...
