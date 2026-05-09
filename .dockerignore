@@ -1,0 +1,10 @@
+worker/
+tests/
+docs/
+tmp/
+.git/
+api/.venv/
+__pycache__/
+*.pyc
+*.pyo
+.env

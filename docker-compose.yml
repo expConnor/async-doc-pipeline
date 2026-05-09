@@ -1,8 +1,10 @@
 services:
   api:
-    build: ./api
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
     container_name: doc-pipeline-api
-    command: uvicorn app.app:app --host 0.0.0.0 --port 8080 --reload
+    command: uvicorn api.app:app --host 0.0.0.0 --port 8080 --reload
     environment:
       POSTGRES_HOST: postgres
       RABBITMQ_HOST: rabbitmq
@@ -11,7 +13,8 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./api:/api
+      - ./shared:/workspace/shared
+      - ./api:/workspace/api
 
   postgres:
     image: postgres:16
