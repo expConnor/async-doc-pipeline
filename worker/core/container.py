@@ -22,6 +22,7 @@ from shared.interfaces.repositories.artifact import IArtifactRepository
 from shared.interfaces.repositories.document import IDocumentRepository
 from shared.interfaces.repositories.job import IJobRepository
 
+from ..infrastructure.messaging.consumer import RabbitMQConsumer
 from ..infrastructure.parsing.pymupdf_parser import PyMuPDFParser
 from ..interfaces.parser import IDocumentParser
 from ..services.processing_service import ProcessingService
@@ -75,6 +76,16 @@ class Container:
             artifact_repo=self.artifact_repository(),
             storage=self.storage_service(),
             parser=self.parser(),
+        )
+
+    def consumer(self) -> RabbitMQConsumer:
+        return RabbitMQConsumer(
+            container=self,
+            processing_service=self.processing_service(),
+            messaging=self.messaging_service(),
+            job_repo=self.job_repository(),
+            url=self._settings.rabbitmq_url,
+            queue=self._settings.rabbitmq_queue,
         )
 
 
