@@ -16,6 +16,26 @@ services:
       - ./shared:/workspace/shared
       - ./api:/workspace/api
 
+  worker:
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    container_name: doc-pipeline-worker
+    command: python -m worker.main
+    environment:
+      POSTGRES_HOST: postgres
+      RABBITMQ_HOST: rabbitmq
+    env_file:
+      - .env
+    volumes:
+      - ./shared:/workspace/shared
+      - ./worker:/workspace/worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
   postgres:
     image: postgres:16
     container_name: doc-pipeline-postgres
