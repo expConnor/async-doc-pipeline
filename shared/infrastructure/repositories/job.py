@@ -95,6 +95,17 @@ class JobRepository(IJobRepository):
         except SQLAlchemyError as e:
             raise DatabaseException() from e
 
+    async def get_for_processing(
+        self, session: AsyncSession, job_id: int
+    ) -> JobDTO | None:
+        try:
+            query = select(Job).where(Job.id == job_id)
+            if job := await session.scalar(query):
+                return self._to_dto(job)
+            return None
+        except SQLAlchemyError as e:
+            raise DatabaseException() from e
+
     @staticmethod
     def _to_dto(model: Job) -> JobDTO:
         return JobDTO(

@@ -26,3 +26,8 @@ class IJobRepository(ABC):
     async def get_active_for_document(
         self, session: Any, document_id: int, account_id: int
     ) -> JobDTO | None: ...
+
+    @abstractmethod
+    async def get_for_processing(
+        self, session: Any, job_id: int
+    ) -> JobDTO | None: ...
