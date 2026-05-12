@@ -4,6 +4,7 @@ import logging
 from typing import TYPE_CHECKING
 
 import aio_pika
+from aio_pika.abc import AbstractIncomingMessage
 
 from shared.core.exceptions import DatabaseException, QueueException
 from shared.dtos.job import JobStatus
@@ -57,7 +58,7 @@ class RabbitMQConsumer:
     def request_stop(self) -> None:
         self._stop_event.set()
 
-    async def _handle(self, msg: aio_pika.IncomingMessage) -> None:
+    async def _handle(self, msg: AbstractIncomingMessage) -> None:
         try:
             payload = json.loads(msg.body)
             job_id = payload["job_id"]
