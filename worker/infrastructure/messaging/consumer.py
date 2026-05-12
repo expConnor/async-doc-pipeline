@@ -11,6 +11,8 @@ from shared.dtos.job import JobStatus
 from shared.interfaces.infrastructure.messaging import IMessagingService
 from shared.interfaces.repositories.job import IJobRepository
 
+from ...interfaces.consumer import IMessageConsumer
+
 if TYPE_CHECKING:
     from worker.core.container import Container
     from worker.services.processing_service import ProcessingService
@@ -18,7 +20,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class RabbitMQConsumer:
+class RabbitMQConsumer(IMessageConsumer):
     def __init__(
         self,
         container: "Container",

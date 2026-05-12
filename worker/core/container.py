@@ -24,6 +24,7 @@ from shared.interfaces.repositories.job import IJobRepository
 
 from ..infrastructure.messaging.consumer import RabbitMQConsumer
 from ..infrastructure.parsing.pymupdf_parser import PyMuPDFParser
+from ..interfaces.consumer import IMessageConsumer
 from ..interfaces.parser import IDocumentParser
 from ..services.processing_service import ProcessingService
 
@@ -78,7 +79,7 @@ class Container:
             parser=self.parser(),
         )
 
-    def consumer(self) -> RabbitMQConsumer:
+    def consumer(self) -> IMessageConsumer:
         return RabbitMQConsumer(
             container=self,
             processing_service=self.processing_service(),
