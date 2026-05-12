@@ -9,9 +9,10 @@ from shared.interfaces.repositories.document import IDocumentRepository
 from shared.interfaces.repositories.job import IJobRepository
 
 from ..interfaces.parser import IDocumentParser
+from ..interfaces.processing_service import IProcessingService
 
 
-class ProcessingService:
+class ProcessingService(IProcessingService):
     def __init__(
         self,
         job_repo: IJobRepository,

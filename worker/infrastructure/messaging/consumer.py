@@ -12,10 +12,10 @@ from shared.interfaces.infrastructure.messaging import IMessagingService
 from shared.interfaces.repositories.job import IJobRepository
 
 from ...interfaces.consumer import IMessageConsumer
+from ...interfaces.processing_service import IProcessingService
 
 if TYPE_CHECKING:
     from worker.core.container import Container
-    from worker.services.processing_service import ProcessingService
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ class RabbitMQConsumer(IMessageConsumer):
     def __init__(
         self,
         container: "Container",
-        processing_service: "ProcessingService",
+        processing_service: IProcessingService,
         messaging: IMessagingService,
         job_repo: IJobRepository,
         url: str,

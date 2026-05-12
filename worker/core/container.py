@@ -26,6 +26,7 @@ from ..infrastructure.messaging.consumer import RabbitMQConsumer
 from ..infrastructure.parsing.pymupdf_parser import PyMuPDFParser
 from ..interfaces.consumer import IMessageConsumer
 from ..interfaces.parser import IDocumentParser
+from ..interfaces.processing_service import IProcessingService
 from ..services.processing_service import ProcessingService
 
 
@@ -70,7 +71,7 @@ class Container:
     def messaging_service(self) -> IMessagingService:
         return RabbitMQMessagingService(url=self._settings.rabbitmq_url)
 
-    def processing_service(self) -> ProcessingService:
+    def processing_service(self) -> IProcessingService:
         return ProcessingService(
             job_repo=self.job_repository(),
             document_repo=self.document_repository(),
