@@ -36,6 +36,10 @@ Local dev runs the same stack via Docker Compose with local Postgres and RabbitM
 - **Auth via hashed API keys.** Stored in `accounts.api_key_hash`, passed as `X-API-Key` header.
 - **Typed exception hierarchy.** Services and infrastructure raise domain exceptions (`DocumentNotFoundException`, `JobNotFoundException`, `StorageException`, `QueueException`, `DatabaseException`) defined in `shared/core/exceptions.py`. Three handlers in `api/app.py` convert these to a structured JSON error envelope — never bare 500s. Infrastructure errors use `raise X() from e` to preserve cause chains.
 - **DB-scoped retry.** The worker re-enqueues failed jobs using the DB as the sole source of truth. On failure: if `job.attempts < job.max_attempts`, mark `QUEUED` and re-enqueue; if exhausted, mark `FAILED` (terminal). `FAILED` means permanently failed — retrying jobs cycle through `QUEUED`, never touch `FAILED`. `failed_at` is only written on terminal failure.
+- **Workers consume serially.** `prefetch_count=1` on the consumer channel — one in-flight job per worker process. Throughput scales by adding workers, not by in-process fan-out (PDF parsing is CPU-bound and GIL-limited).
+- **Consumer is transport-only; service hydrates.** The API publishes `{job_id, document_id, artifact_types}` to the queue, but the consumer reads only `job_id`. `ProcessingService.process(session, job_id)` loads the job and document from the DB itself. The consumer parses JSON, owns the `STARTED` transition and ack/retry, and hands off everything else.
+- **Idempotency on redelivery.** RabbitMQ delivers at-least-once. Before processing, the consumer loads the job and ack-drops if status isn't `QUEUED` (handles redelivery from broker partitions and post-crash redelivery). The `STARTED` transition commits in its own session so a concurrent redelivery sees it and drops.
+- **Graceful shutdown.** `SIGTERM`/`SIGINT` set an `asyncio.Event`; the consume loop exits after the in-flight message acks, then closes channel and connection. `SIGKILL` after the grace period is safe — unacked messages get redelivered and idempotency-dropped.
 
 ## Folder Structure
 
@@ -52,10 +56,12 @@ doc-pipeline/
 │   ├── core/
 │   │   └── container.py            # DI wiring
 │   ├── interfaces/
-│   │   └── parser.py               # IDocumentParser abstract port
+│   │   ├── consumer.py             # IMessageConsumer abstract port
+│   │   ├── parser.py               # IDocumentParser abstract port
+│   │   └── processing_service.py   # IProcessingService abstract port
 │   ├── infrastructure/
 │   │   ├── messaging/
-│   │   │   └── consumer.py         # RabbitMQ consume loop (aio_pika)
+│   │   │   └── consumer.py         # RabbitMQConsumer (aio_pika consume loop, ack/retry, drain)
 │   │   └── parsing/
 │   │       └── pymupdf_parser.py   # PyMuPDF4LLM implementation
 │   └── services/
