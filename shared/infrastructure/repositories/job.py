@@ -1,10 +1,10 @@
 from datetime import datetime
 
 from sqlalchemy import insert, select, update
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...core.exceptions import DatabaseException
+from ...core.exceptions import ActiveJobExistsException, DatabaseException
 from ...dtos.job import CreateJobDTO, JobDTO, JobStatus
 from ...infrastructure.models import Job
 from ...interfaces.repositories.job import IJobRepository
@@ -35,6 +35,8 @@ class JobRepository(IJobRepository):
             )
             result = await session.execute(query)
             return self._to_dto(result.scalar_one())
+        except IntegrityError as e:
+            raise ActiveJobExistsException() from e
         except SQLAlchemyError as e:
             raise DatabaseException() from e
 
