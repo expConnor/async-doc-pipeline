@@ -7,7 +7,7 @@ from shared.core.exceptions import (
     DocumentNotFoundException,
     DocumentNotUploadedException,
 )
-from shared.dtos.job import CreateJobDTO, JobDTO, JobStatus
+from shared.dtos.job import CreateJobDTO, JobDTO
 from shared.interfaces.infrastructure.messaging import IMessagingService
 from shared.interfaces.infrastructure.storage import IStorageService
 from shared.interfaces.repositories.document import IDocumentRepository
@@ -51,6 +51,7 @@ class JobService(IJobService):
             raise BackpressureException()
 
         job = await self._repo.create(session, dto)
+        await session.commit()
         await self._messaging.enqueue(
             self._queue,
             {
@@ -59,4 +60,4 @@ class JobService(IJobService):
                 "artifact_types": [t.value for t in job.artifact_types],
             },
         )
-        return await self._repo.update_status(session, job.id, JobStatus.QUEUED)
+        return job
