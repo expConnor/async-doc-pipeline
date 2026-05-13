@@ -34,7 +34,9 @@ class JobRepository(IJobRepository):
             result = await session.execute(query)
             return self._to_dto(result.scalar_one())
         except IntegrityError as e:
-            raise ActiveJobExistsException() from e
+            if "one_active_job_per_document" in str(e.orig):
+                raise ActiveJobExistsException() from e
+            raise DatabaseException() from e
         except SQLAlchemyError as e:
             raise DatabaseException() from e
 
