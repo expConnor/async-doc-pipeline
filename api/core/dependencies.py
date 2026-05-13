@@ -1,5 +1,6 @@
 from typing import Annotated
 
+import structlog.contextvars
 from fastapi import Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,6 +33,7 @@ async def get_current_account(
     account = await account_service.authenticate(session, raw_key)
     if account is None:
         raise HTTPException(status_code=401, detail="Invalid API key")
+    structlog.contextvars.bind_contextvars(account_id=str(account.id))
     return account
 
 
