@@ -6,11 +6,10 @@ from .artifact import ArtifactType
 
 
 class JobStatus(str, Enum):
-    CREATED = "created"  # Job record exists
-    QUEUED = "queued"  # Job record enqueued in message queue
-    STARTED = "started"  # worker picked up job
-    COMPLETED = "completed"  # worker success
-    FAILED = "failed"  # worker failed
+    QUEUED = "queued"  # Job record exists and is enqueued
+    STARTED = "started"  # Worker picked up job
+    COMPLETED = "completed"
+    FAILED = "failed"
 
 
 @dataclass(frozen=True)
