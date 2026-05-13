@@ -1,9 +1,10 @@
 import asyncio
 import json
-import logging
 from typing import TYPE_CHECKING
 
 import aio_pika
+import structlog
+import structlog.contextvars
 from aio_pika.abc import AbstractIncomingMessage
 
 from shared.core.exceptions import (
@@ -21,7 +22,7 @@ from ...interfaces.processing_service import IProcessingService
 if TYPE_CHECKING:
     from worker.core.container import Container
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 
 class RabbitMQConsumer(IMessageConsumer):
@@ -65,25 +66,28 @@ class RabbitMQConsumer(IMessageConsumer):
         self._stop_event.set()
 
     async def _handle(self, msg: AbstractIncomingMessage) -> None:
+        structlog.contextvars.clear_contextvars()
+
         try:
             payload = json.loads(msg.body)
             job_id = payload["job_id"]
         except (json.JSONDecodeError, KeyError, TypeError):
-            logger.warning("poison message dropped")
+            logger.warning("consumer.poison_message_dropped")
             await msg.ack()
             return
+
+        structlog.contextvars.bind_contextvars(job_id=job_id)
 
         async with self._container.open_session() as session:
             job = await self._job_repo.get_for_processing(session, job_id)
             if job is None:
-                logger.warning("job %s not found, dropping", job_id)
+                logger.warning("consumer.job_not_found")
                 await msg.ack()
                 return
             if job.status is not JobStatus.QUEUED:
                 logger.info(
-                    "job %s not in QUEUED state (%s), dropping (idempotency)",
-                    job_id,
-                    job.status,
+                    "consumer.idempotency_drop",
+                    job_status=job.status.value,
                 )
                 await msg.ack()
                 return
@@ -97,19 +101,24 @@ class RabbitMQConsumer(IMessageConsumer):
                     expected_status=JobStatus.QUEUED,
                 )
             except JobStateConflictException:
-                logger.info(
-                    "job %s claimed by concurrent worker, dropping", job_id
-                )
+                logger.info("consumer.concurrent_claim_dropped")
                 await msg.ack()
                 return
             except DatabaseException:
-                logger.warning("could not mark job %s started, requeue", job_id)
+                logger.warning("consumer.start_failed_requeue")
                 await msg.nack(requeue=True)
                 return
+
+        logger.info(
+            "consumer.job_started",
+            attempt=started.attempts,
+            max_attempts=started.max_attempts,
+        )
 
         try:
             async with self._container.open_session() as session:
                 await self._processing_service.process(session, job_id)
+            logger.info("consumer.job_completed")
             await msg.ack()
         except Exception as e:
             await self._handle_failure(
@@ -138,12 +147,17 @@ class RabbitMQConsumer(IMessageConsumer):
                     await self._messaging.enqueue(
                         self._queue, {"job_id": job_id}
                     )
+                    logger.warning(
+                        "consumer.job_failed_requeued",
+                        attempt=attempts,
+                        max_attempts=max_attempts,
+                        exc_info=exc,
+                    )
                 except QueueException:
                     logger.error(
-                        "re-enqueue failed for job %s; job stranded in QUEUED",
-                        job_id,
+                        "consumer.reenqueue_failed",
+                        exc_info=exc,
                     )
-                    # stale-QUEUED sweeper is future work
             else:
                 async with self._container.open_session() as session:
                     await self._job_repo.update_status(
@@ -153,8 +167,11 @@ class RabbitMQConsumer(IMessageConsumer):
                         expected_status=JobStatus.STARTED,
                         error_message=str(exc),
                     )
+                logger.error(
+                    "consumer.job_terminal_failure",
+                    attempt=attempts,
+                    max_attempts=max_attempts,
+                    exc_info=exc,
+                )
         except JobStateConflictException:
-            logger.error(
-                "job %s status conflict in failure handling; skipping update",
-                job_id,
-            )
+            logger.error("consumer.failure_handler_state_conflict")
