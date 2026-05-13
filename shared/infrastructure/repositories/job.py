@@ -26,7 +26,8 @@ class JobRepository(IJobRepository):
                     account_id=dto.account_id,
                     document_id=dto.document_id,
                     artifact_types=dto.artifact_types,
-                    status=JobStatus.CREATED,
+                    status=JobStatus.QUEUED,
+                    queued_at=datetime.now(),
                     created_at=datetime.now(),
                 )
                 .returning(Job)
