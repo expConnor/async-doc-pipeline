@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any
 
 from shared.core.exceptions import (
-    ActiveJobExistsException,
     BackpressureException,
     DocumentNotFoundException,
     DocumentNotUploadedException,
@@ -46,14 +45,6 @@ class JobService(IJobService):
             raise DocumentNotFoundException()
         if not await self._storage.object_exists(document.object_key):
             raise DocumentNotUploadedException()
-
-        if (
-            await self._repo.get_active_for_document(
-                session, dto.document_id, dto.account_id
-            )
-            is not None
-        ):
-            raise ActiveJobExistsException()
 
         depth = await self._messaging.queue_depth(self._queue)
         if depth >= self._backpressure_threshold:
