@@ -1,6 +1,10 @@
 from pathlib import Path
 from typing import Any
 
+from shared.core.exceptions import (
+    DocumentNotFoundException,
+    JobNotFoundException,
+)
 from shared.dtos.artifact import ArtifactType, CreateArtifactDTO
 from shared.dtos.job import JobStatus
 from shared.interfaces.infrastructure.storage import IStorageService
@@ -29,9 +33,13 @@ class ProcessingService(IProcessingService):
 
     async def process(self, session: Any, job_id: int) -> None:
         job = await self._job_repo.get_for_processing(session, job_id)
+        if job is None:
+            raise JobNotFoundException()
         document = await self._document_repo.get_by_id(
             session, job.document_id, job.account_id
         )
+        if document is None:
+            raise DocumentNotFoundException()
         content = await self._storage.get_object(document.object_key)
         markdown = await self._parser.parse(content)
         key = f"artifacts/{job_id}/{Path(document.file_name).stem}.md"
@@ -42,4 +50,9 @@ class ProcessingService(IProcessingService):
                 job_id, job.document_id, ArtifactType.MARKDOWN, key
             ),
         )
-        await self._job_repo.update_status(session, job_id, JobStatus.COMPLETED)
+        await self._job_repo.update_status(
+            session,
+            job_id,
+            JobStatus.COMPLETED,
+            expected_status=JobStatus.STARTED,
+        )

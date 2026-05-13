@@ -6,7 +6,11 @@ from typing import TYPE_CHECKING
 import aio_pika
 from aio_pika.abc import AbstractIncomingMessage
 
-from shared.core.exceptions import DatabaseException, QueueException
+from shared.core.exceptions import (
+    DatabaseException,
+    JobStateConflictException,
+    QueueException,
+)
 from shared.dtos.job import JobStatus
 from shared.interfaces.infrastructure.messaging import IMessagingService
 from shared.interfaces.repositories.job import IJobRepository
@@ -87,8 +91,17 @@ class RabbitMQConsumer(IMessageConsumer):
         async with self._container.open_session() as session:
             try:
                 started = await self._job_repo.update_status(
-                    session, job_id, JobStatus.STARTED
+                    session,
+                    job_id,
+                    JobStatus.STARTED,
+                    expected_status=JobStatus.QUEUED,
                 )
+            except JobStateConflictException:
+                logger.info(
+                    "job %s claimed by concurrent worker, dropping", job_id
+                )
+                await msg.ack()
+                return
             except DatabaseException:
                 logger.warning("could not mark job %s started, requeue", job_id)
                 await msg.nack(requeue=True)
@@ -111,21 +124,37 @@ class RabbitMQConsumer(IMessageConsumer):
         max_attempts: int,
         exc: Exception,
     ) -> None:
-        if attempts < max_attempts:
-            async with self._container.open_session() as session:
-                await self._job_repo.update_status(
-                    session, job_id, JobStatus.QUEUED, error_message=str(exc)
-                )
-            try:
-                await self._messaging.enqueue(self._queue, {"job_id": job_id})
-            except QueueException:
-                logger.error(
-                    "re-enqueue failed for job %s; job stranded in QUEUED",
-                    job_id,
-                )
-                # stale-QUEUED sweeper is future work
-        else:
-            async with self._container.open_session() as session:
-                await self._job_repo.update_status(
-                    session, job_id, JobStatus.FAILED, error_message=str(exc)
-                )
+        try:
+            if attempts < max_attempts:
+                async with self._container.open_session() as session:
+                    await self._job_repo.update_status(
+                        session,
+                        job_id,
+                        JobStatus.QUEUED,
+                        expected_status=JobStatus.STARTED,
+                        error_message=str(exc),
+                    )
+                try:
+                    await self._messaging.enqueue(
+                        self._queue, {"job_id": job_id}
+                    )
+                except QueueException:
+                    logger.error(
+                        "re-enqueue failed for job %s; job stranded in QUEUED",
+                        job_id,
+                    )
+                    # stale-QUEUED sweeper is future work
+            else:
+                async with self._container.open_session() as session:
+                    await self._job_repo.update_status(
+                        session,
+                        job_id,
+                        JobStatus.FAILED,
+                        expected_status=JobStatus.STARTED,
+                        error_message=str(exc),
+                    )
+        except JobStateConflictException:
+            logger.error(
+                "job %s status conflict in failure handling; skipping update",
+                job_id,
+            )

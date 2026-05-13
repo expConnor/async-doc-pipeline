@@ -73,3 +73,8 @@ class QueueException(AppException):
 class DatabaseException(AppException):
     _status_code = 503
     _message = "Database service unavailable."
+
+
+class JobStateConflictException(AppException):
+    _status_code = 409
+    _message = "Job status conflict: concurrent write detected."

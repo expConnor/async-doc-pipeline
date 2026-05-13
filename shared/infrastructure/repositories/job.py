@@ -4,7 +4,11 @@ from sqlalchemy import insert, select, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...core.exceptions import ActiveJobExistsException, DatabaseException
+from ...core.exceptions import (
+    ActiveJobExistsException,
+    DatabaseException,
+    JobStateConflictException,
+)
 from ...dtos.job import CreateJobDTO, JobDTO, JobStatus
 from ...infrastructure.models import Job
 from ...interfaces.repositories.job import IJobRepository
@@ -60,6 +64,8 @@ class JobRepository(IJobRepository):
         session: AsyncSession,
         job_id: int,
         status: JobStatus,
+        *,
+        expected_status: JobStatus,
         error_message: str | None = None,
     ) -> JobDTO:
         try:
@@ -74,12 +80,17 @@ class JobRepository(IJobRepository):
 
             query = (
                 update(Job)
-                .where(Job.id == job_id)
+                .where(Job.id == job_id, Job.status == expected_status)
                 .values(**values)
                 .returning(Job)
             )
             result = await session.execute(query)
-            return self._to_dto(result.scalar_one())
+            row = result.scalar_one_or_none()
+            if row is None:
+                raise JobStateConflictException()
+            return self._to_dto(row)
+        except JobStateConflictException:
+            raise
         except SQLAlchemyError as e:
             raise DatabaseException() from e
 

@@ -19,6 +19,8 @@ class IJobRepository(ABC):
         session: Any,
         job_id: int,
         status: JobStatus,
+        *,
+        expected_status: JobStatus,
         error_message: str | None = None,
     ) -> JobDTO: ...
 
