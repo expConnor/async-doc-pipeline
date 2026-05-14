@@ -14,9 +14,12 @@ class _Settings:
 
 
 @pytest.fixture
-def container(async_db_url):
+async def container(async_db_url):
     c = Container(_Settings(async_db_url))
-    yield c
+    try:
+        yield c
+    finally:
+        await c._engine.dispose()
 
 
 async def test_open_session_commits_on_success(container, async_db_url):
@@ -32,20 +35,19 @@ async def test_open_session_commits_on_success(container, async_db_url):
 
     # Verify with a separate connection that the row was committed
     engine = create_async_engine(async_db_url)
-    async with engine.connect() as conn:
-        row = await conn.scalar(
-            select(Account).where(Account.id == inserted_id)
-        )
-    await engine.dispose()
+    try:
+        async with engine.connect() as conn:
+            row = await conn.scalar(
+                select(Account).where(Account.id == inserted_id)
+            )
 
-    assert row is not None
+        assert row is not None
 
-    # Cleanup — the db_session rollback fixture does not cover committed data
-    cleanup_engine = create_async_engine(async_db_url)
-    async with cleanup_engine.begin() as conn:
-        await conn.execute(delete(Account).where(Account.id == inserted_id))
-    await cleanup_engine.dispose()
-    await container._engine.dispose()
+        # Cleanup — db_session rollback does not cover committed data
+        async with engine.begin() as conn:
+            await conn.execute(delete(Account).where(Account.id == inserted_id))
+    finally:
+        await engine.dispose()
 
 
 async def test_open_session_rolls_back_on_exception(container, async_db_url):
@@ -63,11 +65,12 @@ async def test_open_session_rolls_back_on_exception(container, async_db_url):
 
     # Verify with a separate connection that the row was NOT committed
     engine = create_async_engine(async_db_url)
-    async with engine.connect() as conn:
-        row = await conn.scalar(
-            select(Account).where(Account.id == inserted_id)
-        )
-    await engine.dispose()
-    await container._engine.dispose()
+    try:
+        async with engine.connect() as conn:
+            row = await conn.scalar(
+                select(Account).where(Account.id == inserted_id)
+            )
+    finally:
+        await engine.dispose()
 
     assert row is None
