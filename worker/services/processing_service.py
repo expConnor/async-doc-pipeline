@@ -58,7 +58,7 @@ class ProcessingService(IProcessingService):
         markdown = await self._parser.parse(content)
         logger.debug(
             "processing.parse_complete",
-            size_bytes=len(markdown),
+            size_chars=len(markdown),
         )
 
         key = f"artifacts/{job_id}/{Path(document.file_name).stem}.md"
