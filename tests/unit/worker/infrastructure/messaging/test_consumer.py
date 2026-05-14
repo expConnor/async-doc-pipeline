@@ -144,3 +144,45 @@ async def test_handle_open_session_raises_propagates(consumer, msg):
 
     msg.ack.assert_not_called()
     msg.nack.assert_not_called()
+
+
+async def test_handle_processing_success_acks(
+    consumer, msg, job_repo, processing_service, queued_job_dto, started_job_dto
+):
+    msg.body = b'{"job_id": 10}'
+    job_repo.get_for_processing.return_value = queued_job_dto
+    job_repo.update_status.return_value = started_job_dto
+
+    await consumer._handle(msg)
+
+    processing_service.process.assert_called_once()
+    msg.ack.assert_called_once()
+    msg.nack.assert_not_called()
+
+
+async def test_handle_processing_failure_delegates(
+    consumer,
+    msg,
+    job_repo,
+    processing_service,
+    queued_job_dto,
+    started_job_dto,
+    session,
+):
+    # started_job_dto has attempts=max_attempts=3, so _handle_failure takes the
+    # terminal path (FAILED), keeping this test simple without chaining mocks.
+    msg.body = b'{"job_id": 10}'
+    job_repo.get_for_processing.return_value = queued_job_dto
+    job_repo.update_status.return_value = started_job_dto
+    processing_service.process.side_effect = RuntimeError("processing failed")
+
+    await consumer._handle(msg)
+
+    job_repo.update_status.assert_called_with(
+        session,
+        10,
+        JobStatus.FAILED,
+        expected_status=JobStatus.STARTED,
+        error_message="processing failed",
+    )
+    msg.ack.assert_called_once()
