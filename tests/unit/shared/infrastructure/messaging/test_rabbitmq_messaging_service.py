@@ -1,3 +1,5 @@
+import unittest.mock
+
 import aio_pika
 import pytest
 
@@ -88,7 +90,9 @@ async def test_enqueue_success(mocker):
     await svc.enqueue("jobs", {"job_id": 1})
 
     channel.declare_queue.assert_called_once_with("jobs", durable=True)
-    channel.default_exchange.publish.assert_called_once()
+    channel.default_exchange.publish.assert_called_once_with(
+        unittest.mock.ANY, routing_key="jobs"
+    )
 
 
 async def test_enqueue_raises_queue_exception_on_amqp_error(mocker):

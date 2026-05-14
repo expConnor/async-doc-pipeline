@@ -145,6 +145,7 @@ async def test_create_success_when_depth_below_threshold(
             "artifact_types": [ArtifactType.MARKDOWN.value],
         },
     )
+    session.commit.assert_called_once()
 
 
 async def test_create_propagates_queue_exception_after_commit(
