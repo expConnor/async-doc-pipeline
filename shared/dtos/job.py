@@ -1,11 +1,11 @@
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 
 from .artifact import ArtifactType
 
 
-class JobStatus(str, Enum):
+class JobStatus(StrEnum):
     QUEUED = "queued"  # Job record exists and is enqueued
     STARTED = "started"  # Worker picked up job
     COMPLETED = "completed"

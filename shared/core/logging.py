@@ -14,12 +14,14 @@ def setup_logging(*, log_level: str, log_format: str) -> None:
     ]
 
     if log_format == "json":
-        processors = shared_processors + [
+        processors = [
+            *shared_processors,
             structlog.processors.ExceptionRenderer(),
             structlog.processors.JSONRenderer(),
         ]
     else:
-        processors = shared_processors + [
+        processors = [
+            *shared_processors,
             structlog.dev.ConsoleRenderer(),
         ]
 
