@@ -1,10 +1,12 @@
 from functools import lru_cache
 
 from .settings.base import AppEnvTypes, BaseAppSettings
+from .settings.dev import DevAppSettings
 from .settings.test import TestAppSettings
 
 _environments: dict[str, type[BaseAppSettings]] = {
     AppEnvTypes.production: BaseAppSettings,
+    AppEnvTypes.development: DevAppSettings,
     AppEnvTypes.testing: TestAppSettings,
 }
 

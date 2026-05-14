@@ -8,6 +8,7 @@ class AppEnvTypes:
     """
 
     production = "prod"
+    development = "dev"
     testing = "test"
 
 
@@ -17,6 +18,8 @@ class BaseAppSettings(BaseSettings):
         extra="ignore",
     )
     app_env: str = AppEnvTypes.production
+    log_level: str = "INFO"
+    log_format: str = "json"
 
     postgres_host: str
     postgres_port: int = 5432

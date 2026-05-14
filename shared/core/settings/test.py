@@ -8,3 +8,5 @@ class TestAppSettings(BaseAppSettings):
         env_file=".env.test",
         extra="ignore",
     )
+    log_level: str = "WARNING"
+    log_format: str = "pretty"
