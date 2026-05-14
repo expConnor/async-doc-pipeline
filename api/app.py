@@ -12,8 +12,8 @@ from shared.core.logging import setup_logging
 _settings = get_settings()
 setup_logging(log_level=_settings.log_level, log_format=_settings.log_format)
 
-from api.middleware import LoggingMiddleware  # noqa: E402
-from api.routes import documents, health, jobs  # noqa: E402
+from api.middleware import LoggingMiddleware
+from api.routes import documents, health, jobs
 
 logger = structlog.get_logger()
 app = FastAPI()
