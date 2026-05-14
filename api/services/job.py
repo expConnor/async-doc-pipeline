@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import structlog
+
 from shared.core.exceptions import (
     BackpressureException,
     DocumentNotFoundException,
@@ -13,6 +15,8 @@ from shared.interfaces.infrastructure.storage import IStorageService
 from shared.interfaces.repositories.document import IDocumentRepository
 from shared.interfaces.repositories.job import IJobRepository
 from shared.interfaces.services.job import IJobService
+
+logger = structlog.get_logger()
 
 
 class JobService(IJobService):
@@ -59,5 +63,11 @@ class JobService(IJobService):
                 "document_id": job.document_id,
                 "artifact_types": [t.value for t in job.artifact_types],
             },
+        )
+        logger.debug(
+            "job.enqueued",
+            job_id=job.id,
+            document_id=job.document_id,
+            queue_depth=depth,
         )
         return job
