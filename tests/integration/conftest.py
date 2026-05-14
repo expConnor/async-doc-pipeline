@@ -51,7 +51,7 @@ def create_schema(async_db_url):
 async def db_session(async_db_url) -> AsyncSession:
     """Per-test async session. Rolls back after each test — no data persists."""
     engine = create_async_engine(async_db_url)
-    factory = async_sessionmaker(bind=engine, expire_on_commit=False)
+    factory = async_sessionmaker(engine, expire_on_commit=False)
     session = factory()
     try:
         yield session
