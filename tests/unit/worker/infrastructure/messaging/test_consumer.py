@@ -2,7 +2,11 @@ from datetime import datetime
 
 import pytest
 
-from shared.core.exceptions import DatabaseException, JobStateConflictException
+from shared.core.exceptions import (
+    DatabaseException,
+    JobStateConflictException,
+    QueueException,
+)
 from shared.dtos.artifact import ArtifactType
 from shared.dtos.job import JobDTO, JobStatus
 
@@ -186,3 +190,79 @@ async def test_handle_processing_failure_delegates(
         error_message="processing failed",
     )
     msg.ack.assert_called_once()
+
+
+async def test_failure_below_max_requeues(
+    consumer, job_repo, messaging, session
+):
+    await consumer._handle_failure(10, 1, 3, RuntimeError("failed"))
+
+    job_repo.update_status.assert_called_once_with(
+        session,
+        10,
+        JobStatus.QUEUED,
+        expected_status=JobStatus.STARTED,
+        error_message="failed",
+    )
+    messaging.enqueue.assert_called_once_with("jobs", {"job_id": 10})
+
+
+async def test_failure_at_max_terminal(consumer, job_repo, messaging, session):
+    await consumer._handle_failure(10, 3, 3, RuntimeError("failed"))
+
+    job_repo.update_status.assert_called_once_with(
+        session,
+        10,
+        JobStatus.FAILED,
+        expected_status=JobStatus.STARTED,
+        error_message="failed",
+    )
+    messaging.enqueue.assert_not_called()
+
+
+async def test_failure_above_max_terminal(
+    consumer, job_repo, messaging, session
+):
+    await consumer._handle_failure(10, 4, 3, RuntimeError("failed"))
+
+    job_repo.update_status.assert_called_once_with(
+        session,
+        10,
+        JobStatus.FAILED,
+        expected_status=JobStatus.STARTED,
+        error_message="failed",
+    )
+    messaging.enqueue.assert_not_called()
+
+
+async def test_failure_reenqueue_queue_exception_logged(
+    consumer, job_repo, messaging, session
+):
+    messaging.enqueue.side_effect = QueueException()
+
+    await consumer._handle_failure(10, 1, 3, RuntimeError("failed"))
+
+    job_repo.update_status.assert_called_once_with(
+        session,
+        10,
+        JobStatus.QUEUED,
+        expected_status=JobStatus.STARTED,
+        error_message="failed",
+    )
+    # QueueException is caught and logged — no propagation
+
+
+async def test_failure_update_failed_db_exception_propagates(
+    consumer, job_repo
+):
+    job_repo.update_status.side_effect = DatabaseException()
+
+    with pytest.raises(DatabaseException):
+        await consumer._handle_failure(10, 3, 3, RuntimeError("failed"))
+
+
+async def test_failure_update_state_conflict_logged(consumer, job_repo):
+    job_repo.update_status.side_effect = JobStateConflictException()
+
+    # Caught by outer try/except — no propagation
+    await consumer._handle_failure(10, 3, 3, RuntimeError("failed"))
