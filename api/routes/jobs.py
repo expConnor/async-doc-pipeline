@@ -45,10 +45,9 @@ async def process_document(
         document_id=document_id,
         artifact_types=body.artifact_types,
     )
+    structlog.contextvars.bind_contextvars(document_id=document_id)
     job = await job_service.create(session, dto)
-    structlog.contextvars.bind_contextvars(
-        document_id=document_id, job_id=job.id
-    )
+    structlog.contextvars.bind_contextvars(job_id=job.id)
     return _to_response(job)
 
 

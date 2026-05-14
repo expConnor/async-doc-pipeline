@@ -159,10 +159,10 @@ class RabbitMQConsumer(IMessageConsumer):
                         max_attempts=max_attempts,
                         exc_info=exc,
                     )
-                except QueueException:
+                except QueueException as queue_exc:
                     logger.error(
                         "consumer.reenqueue_failed",
-                        exc_info=exc,
+                        exc_info=queue_exc,
                     )
             else:
                 async with self._container.open_session() as session:
