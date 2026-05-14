@@ -21,7 +21,10 @@ def postgres_container():
 @pytest.fixture(scope="session")
 def async_db_url(postgres_container) -> str:
     url = postgres_container.get_connection_url()
-    return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    # Replace psycopg2 driver with asyncpg
+    return url.replace(
+        "postgresql+psycopg2://", "postgresql+asyncpg://", 1
+    ).replace("postgresql://", "postgresql+asyncpg://", 1)
 
 
 @pytest.fixture(scope="session", autouse=True)
