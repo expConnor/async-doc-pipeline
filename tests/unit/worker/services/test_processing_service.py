@@ -8,7 +8,7 @@ from shared.core.exceptions import (
     JobNotFoundException,
     StorageException,
 )
-from shared.dtos.artifact import ArtifactType
+from shared.dtos.artifact import ArtifactType, CreateArtifactDTO
 from shared.dtos.document import DocumentDTO
 from shared.dtos.job import JobDTO, JobStatus
 
@@ -136,3 +136,73 @@ async def test_artifact_create_exception_propagates(
 
     with pytest.raises(DatabaseException):
         await processing_service.process(session, 10)
+
+
+async def test_success_creates_artifact_and_completes_job(
+    session,
+    processing_service,
+    job_repo,
+    document_repo,
+    storage,
+    parser,
+    artifact_repo,
+    job_dto,
+    document_dto,
+):
+    job_repo.get_for_processing.return_value = job_dto
+    document_repo.get_by_id.return_value = document_dto
+    storage.get_object.return_value = b"pdf content"
+    parser.parse.return_value = "# Markdown"
+
+    await processing_service.process(session, 10)
+
+    artifact_repo.create.assert_called_once_with(
+        session,
+        CreateArtifactDTO(
+            10, 1, ArtifactType.MARKDOWN, "artifacts/10/report.md"
+        ),
+    )
+    job_repo.update_status.assert_called_once_with(
+        session,
+        10,
+        JobStatus.COMPLETED,
+        expected_status=JobStatus.STARTED,
+    )
+
+
+@pytest.mark.parametrize(
+    "file_name,expected_key",
+    [
+        ("report.pdf", "artifacts/10/report.md"),
+        ("my.report.pdf", "artifacts/10/my.report.md"),
+        ("report", "artifacts/10/report.md"),
+    ],
+)
+async def test_artifact_key_format(
+    session,
+    processing_service,
+    job_repo,
+    document_repo,
+    storage,
+    parser,
+    artifact_repo,
+    job_dto,
+    file_name,
+    expected_key,
+):
+    doc = DocumentDTO(
+        id=1,
+        object_key="uploads/1/doc",
+        file_name=file_name,
+        account_id=1,
+        created_at=datetime(2026, 1, 1),
+    )
+    job_repo.get_for_processing.return_value = job_dto
+    document_repo.get_by_id.return_value = doc
+    storage.get_object.return_value = b"pdf content"
+    parser.parse.return_value = "# Markdown"
+
+    await processing_service.process(session, 10)
+
+    _, dto = artifact_repo.create.call_args.args
+    assert dto.object_key == expected_key
