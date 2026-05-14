@@ -8,10 +8,9 @@ from fastapi.responses import JSONResponse
 from shared.core.config import get_settings
 from shared.core.exceptions import AppException
 from shared.core.logging import setup_logging
-from shared.core.settings.base import AppEnvTypes
 
 _settings = get_settings()
-setup_logging(json_logs=_settings.app_env == AppEnvTypes.production)
+setup_logging(log_level=_settings.log_level, log_format=_settings.log_format)
 
 from api.middleware import LoggingMiddleware  # noqa: E402
 from api.routes import documents, health, jobs  # noqa: E402

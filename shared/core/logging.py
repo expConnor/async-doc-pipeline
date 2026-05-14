@@ -3,7 +3,9 @@ import logging
 import structlog
 
 
-def setup_logging(*, json_logs: bool) -> None:
+def setup_logging(*, log_level: str, log_format: str) -> None:
+    level = getattr(logging, log_level.upper(), logging.INFO)
+
     shared_processors: list[structlog.types.Processor] = [
         structlog.contextvars.merge_contextvars,
         structlog.processors.add_log_level,
@@ -11,7 +13,7 @@ def setup_logging(*, json_logs: bool) -> None:
         structlog.processors.StackInfoRenderer(),
     ]
 
-    if json_logs:
+    if log_format == "json":
         processors = shared_processors + [
             structlog.processors.ExceptionRenderer(),
             structlog.processors.JSONRenderer(),
@@ -23,7 +25,7 @@ def setup_logging(*, json_logs: bool) -> None:
 
     structlog.configure(
         processors=processors,
-        wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
+        wrapper_class=structlog.make_filtering_bound_logger(level),
         context_class=dict,
         logger_factory=structlog.PrintLoggerFactory(),
         cache_logger_on_first_use=True,
