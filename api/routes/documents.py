@@ -1,5 +1,6 @@
 from uuid import uuid4
 
+import structlog.contextvars
 from fastapi import APIRouter
 
 from api.core.dependencies import (
@@ -37,6 +38,7 @@ async def create_document(
         account_id=account.id,
     )
     result = await document_service.create(session, dto)
+    structlog.contextvars.bind_contextvars(document_id=result.document.id)
     return CreateDocumentResponse(
         document_id=result.document.id,
         upload_url=result.upload_url,
@@ -50,6 +52,7 @@ async def get_document(
     session: DBSession,
     document_service: DocumentServiceDep,
 ) -> DocumentResponse:
+    structlog.contextvars.bind_contextvars(document_id=document_id)
     document = await document_service.get(session, document_id, account.id)
     if document is None:
         raise DocumentNotFoundException()
@@ -69,6 +72,7 @@ async def list_artifacts(
     session: DBSession,
     artifact_service: ArtifactServiceDep,
 ) -> ListArtifactsResponse:
+    structlog.contextvars.bind_contextvars(document_id=document_id)
     artifacts = await artifact_service.list_for_document(
         session, document_id, account.id
     )

@@ -1,3 +1,4 @@
+import structlog.contextvars
 from fastapi import APIRouter
 
 from api.core.dependencies import CurrentAccount, DBSession, JobServiceDep
@@ -45,6 +46,9 @@ async def process_document(
         artifact_types=body.artifact_types,
     )
     job = await job_service.create(session, dto)
+    structlog.contextvars.bind_contextvars(
+        document_id=document_id, job_id=job.id
+    )
     return _to_response(job)
 
 
@@ -56,6 +60,8 @@ async def get_job(
     job_service: JobServiceDep,
 ) -> JobResponse:
     job = await job_service.get(session, job_id, account.id)
+    structlog.contextvars.bind_contextvars(job_id=job_id)
     if job is None:
         raise JobNotFoundException()
+    structlog.contextvars.bind_contextvars(document_id=job.document_id)
     return _to_response(job)

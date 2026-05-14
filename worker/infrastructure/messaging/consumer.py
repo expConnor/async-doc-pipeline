@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 from typing import TYPE_CHECKING
 
 import aio_pika
@@ -84,6 +85,7 @@ class RabbitMQConsumer(IMessageConsumer):
                 logger.warning("consumer.job_not_found")
                 await msg.ack()
                 return
+            structlog.contextvars.bind_contextvars(document_id=job.document_id)
             if job.status is not JobStatus.QUEUED:
                 logger.info(
                     "consumer.idempotency_drop",
@@ -115,10 +117,14 @@ class RabbitMQConsumer(IMessageConsumer):
             max_attempts=started.max_attempts,
         )
 
+        process_start = time.perf_counter()
         try:
             async with self._container.open_session() as session:
                 await self._processing_service.process(session, job_id)
-            logger.info("consumer.job_completed")
+            processing_ms = round(
+                (time.perf_counter() - process_start) * 1000, 1
+            )
+            logger.info("consumer.job_completed", processing_ms=processing_ms)
             await msg.ack()
         except Exception as e:
             await self._handle_failure(
