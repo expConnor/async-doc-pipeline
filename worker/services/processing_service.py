@@ -1,6 +1,8 @@
 from pathlib import Path
 from typing import Any
 
+import structlog
+
 from shared.core.exceptions import (
     DocumentNotFoundException,
     JobNotFoundException,
@@ -14,6 +16,8 @@ from shared.interfaces.repositories.job import IJobRepository
 
 from ..interfaces.parser import IDocumentParser
 from ..interfaces.processing_service import IProcessingService
+
+logger = structlog.get_logger()
 
 
 class ProcessingService(IProcessingService):
@@ -40,10 +44,27 @@ class ProcessingService(IProcessingService):
         )
         if document is None:
             raise DocumentNotFoundException()
+
+        logger.debug(
+            "processing.fetch_start",
+            object_key=document.object_key,
+        )
         content = await self._storage.get_object(document.object_key)
+        logger.debug(
+            "processing.fetch_complete",
+            size_bytes=len(content),
+        )
+
         markdown = await self._parser.parse(content)
+        logger.debug(
+            "processing.parse_complete",
+            size_bytes=len(markdown),
+        )
+
         key = f"artifacts/{job_id}/{Path(document.file_name).stem}.md"
         await self._storage.put_object(key, markdown.encode())
+        logger.debug("processing.upload_complete", artifact_key=key)
+
         await self._artifact_repo.create(
             session,
             CreateArtifactDTO(
