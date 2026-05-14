@@ -125,6 +125,7 @@ async def test_queue_depth_returns_zero_on_channel_closed(mocker):
     channel, cm = _make_channel_cm(mocker)
 
     class _ChannelClosed(aio_pika.exceptions.ChannelClosed):
+        # ChannelClosed.__init__ requires broker reply args; bypass for testing
         def __init__(self):
             Exception.__init__(self)
 
