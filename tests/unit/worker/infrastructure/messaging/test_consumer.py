@@ -2,6 +2,7 @@ from datetime import datetime
 
 import pytest
 
+from shared.core.exceptions import DatabaseException, JobStateConflictException
 from shared.dtos.artifact import ArtifactType
 from shared.dtos.job import JobDTO, JobStatus
 
@@ -106,3 +107,40 @@ async def test_handle_job_not_queued_acks(
 
     job_repo.update_status.assert_not_called()
     msg.ack.assert_called_once()
+
+
+async def test_handle_concurrent_claim_acks(
+    consumer, msg, job_repo, queued_job_dto
+):
+    msg.body = b'{"job_id": 10}'
+    job_repo.get_for_processing.return_value = queued_job_dto
+    job_repo.update_status.side_effect = JobStateConflictException()
+
+    await consumer._handle(msg)
+
+    msg.ack.assert_called_once()
+    msg.nack.assert_not_called()
+
+
+async def test_handle_started_db_error_nacks(
+    consumer, msg, job_repo, queued_job_dto
+):
+    msg.body = b'{"job_id": 10}'
+    job_repo.get_for_processing.return_value = queued_job_dto
+    job_repo.update_status.side_effect = DatabaseException()
+
+    await consumer._handle(msg)
+
+    msg.nack.assert_called_once_with(requeue=True)
+    msg.ack.assert_not_called()
+
+
+async def test_handle_open_session_raises_propagates(consumer, msg):
+    msg.body = b'{"job_id": 10}'
+    consumer._container.open_session.side_effect = RuntimeError("db down")
+
+    with pytest.raises(RuntimeError, match="db down"):
+        await consumer._handle(msg)
+
+    msg.ack.assert_not_called()
+    msg.nack.assert_not_called()
