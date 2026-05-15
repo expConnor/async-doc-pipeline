@@ -49,6 +49,7 @@ async def client(
     async def _db_session():
         yield MagicMock()
 
+    original_overrides = app.dependency_overrides.copy()
     app.dependency_overrides[get_db_session] = _db_session
     app.dependency_overrides[get_account_service] = lambda: mock_account_service
     app.dependency_overrides[get_document_service] = lambda: (
@@ -59,9 +60,10 @@ async def client(
         mock_artifact_service
     )
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as c:
-        yield c
-
-    app.dependency_overrides.clear()
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as c:
+            yield c
+    finally:
+        app.dependency_overrides = original_overrides

@@ -18,6 +18,10 @@ async def test_invalid_api_key_returns_401(client, mock_account_service):
     assert body["message"] == "Invalid API key"
 
 
-async def test_valid_api_key_passes_through(client):
-    response = await client.get("/health", headers={"X-API-KEY": API_KEY})
-    assert response.status_code == 200
+async def test_valid_api_key_passes_through(
+    client, mock_document_service, mock_account_service
+):
+    mock_document_service.get.return_value = None
+    response = await client.get("/documents/1", headers={"X-API-KEY": API_KEY})
+    assert response.status_code == 404
+    mock_account_service.authenticate.assert_awaited_once()
