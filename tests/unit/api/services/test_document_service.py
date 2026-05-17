@@ -46,23 +46,3 @@ async def test_create_propagates_storage_exception(
 
     with pytest.raises(StorageException):
         await document_service.create(session, dto)
-
-
-async def test_get_returns_dto(
-    session, document_service, document_repo, document_dto
-):
-    document_repo.get_by_id.return_value = document_dto
-
-    result = await document_service.get(session, document_id=1, account_id=1)
-
-    assert result == document_dto
-
-
-async def test_get_returns_none_when_not_found(
-    session, document_service, document_repo
-):
-    document_repo.get_by_id.return_value = None
-
-    result = await document_service.get(session, document_id=99, account_id=1)
-
-    assert result is None

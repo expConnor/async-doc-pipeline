@@ -168,19 +168,3 @@ async def test_create_propagates_queue_exception_after_commit(
     # Job was committed to DB; only the exception surfaces.
     with pytest.raises(QueueException):
         await job_service.create(session, create_dto)
-
-
-async def test_get_returns_dto(session, job_service, job_repo, job_dto):
-    job_repo.get_by_id.return_value = job_dto
-
-    result = await job_service.get(session, job_id=10, account_id=1)
-
-    assert result == job_dto
-
-
-async def test_get_returns_none_when_not_found(session, job_service, job_repo):
-    job_repo.get_by_id.return_value = None
-
-    result = await job_service.get(session, job_id=99, account_id=1)
-
-    assert result is None

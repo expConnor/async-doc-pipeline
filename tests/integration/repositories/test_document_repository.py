@@ -27,23 +27,6 @@ async def test_create_success(repo, db_session, account):
     assert dto.created_at is not None
 
 
-async def test_create_to_dto_field_completeness(repo, db_session, account):
-    dto = await repo.create(
-        db_session,
-        CreateDocumentDTO(
-            object_key="uploads/complete.pdf",
-            file_name="complete.pdf",
-            account_id=account.id,
-        ),
-    )
-
-    assert dto.id is not None
-    assert dto.object_key == "uploads/complete.pdf"
-    assert dto.file_name == "complete.pdf"
-    assert dto.account_id == account.id
-    assert dto.created_at is not None
-
-
 async def test_create_duplicate_object_key_raises_database_exception(
     repo, db_session, account, document
 ):

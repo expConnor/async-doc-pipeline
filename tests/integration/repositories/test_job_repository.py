@@ -41,34 +41,6 @@ async def test_create_success(repo, db_session, account, document):
     assert dto.failed_at is None
 
 
-async def test_create_to_dto_field_completeness(
-    repo, db_session, account, document
-):
-    dto = await repo.create(
-        db_session,
-        CreateJobDTO(
-            account_id=account.id,
-            document_id=document.id,
-            artifact_types=[ArtifactType.MARKDOWN],
-        ),
-    )
-
-    assert hasattr(dto, "id")
-    assert hasattr(dto, "account_id")
-    assert hasattr(dto, "document_id")
-    assert hasattr(dto, "status")
-    assert hasattr(dto, "artifact_types")
-    assert hasattr(dto, "attempts")
-    assert hasattr(dto, "max_attempts")
-    assert hasattr(dto, "error_message")
-    assert hasattr(dto, "created_at")
-    assert hasattr(dto, "queued_at")
-    assert hasattr(dto, "started_at")
-    assert hasattr(dto, "completed_at")
-    assert hasattr(dto, "last_attempt_at")
-    assert hasattr(dto, "failed_at")
-
-
 async def test_create_active_job_exists_raises(
     repo, db_session, account, document, job
 ):

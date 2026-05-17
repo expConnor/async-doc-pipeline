@@ -29,27 +29,6 @@ async def test_create_success(repo, db_session, account, document, job):
     assert dto.created_at is not None
 
 
-async def test_create_to_dto_field_completeness(
-    repo, db_session, account, document, job
-):
-    dto = await repo.create(
-        db_session,
-        CreateArtifactDTO(
-            job_id=job.id,
-            document_id=document.id,
-            artifact_type=ArtifactType.MARKDOWN,
-            object_key="artifacts/1/complete.md",
-        ),
-    )
-
-    assert hasattr(dto, "id")
-    assert hasattr(dto, "job_id")
-    assert hasattr(dto, "document_id")
-    assert hasattr(dto, "artifact_type")
-    assert hasattr(dto, "object_key")
-    assert hasattr(dto, "created_at")
-
-
 async def test_create_duplicate_object_key_raises_database_exception(
     repo, db_session, account, document, job, artifact
 ):

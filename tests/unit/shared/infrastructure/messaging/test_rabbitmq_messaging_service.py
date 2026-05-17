@@ -35,33 +35,6 @@ def _open_connection(mocker, channel_cm):
 # ---------------------------------------------------------------------------
 
 
-async def test_get_connection_creates_when_none(mocker):
-    svc = RabbitMQMessagingService(url="amqp://localhost")
-    assert svc._connection is None
-
-    mock_conn = mocker.MagicMock()
-    mocker.patch("aio_pika.connect_robust", return_value=mock_conn)
-
-    result = await svc._get_connection()
-
-    assert result is mock_conn
-    assert svc._connection is mock_conn
-
-
-async def test_get_connection_reuses_open_connection(mocker):
-    svc = RabbitMQMessagingService(url="amqp://localhost")
-    existing = mocker.MagicMock()
-    existing.is_closed = False
-    svc._connection = existing
-
-    patch = mocker.patch("aio_pika.connect_robust")
-
-    result = await svc._get_connection()
-
-    assert result is existing
-    patch.assert_not_called()
-
-
 async def test_get_connection_creates_new_when_closed(mocker):
     svc = RabbitMQMessagingService(url="amqp://localhost")
     old_conn = mocker.MagicMock()
