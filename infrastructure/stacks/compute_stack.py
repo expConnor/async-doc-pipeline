@@ -77,7 +77,7 @@ class ComputeStack(Stack):
         shared_env = {
             "POSTGRES_HOST": storage.db.db_instance_endpoint_address,
             "POSTGRES_PORT": "5432",
-            "POSTGRES_DB": "doc-pipeline-db",
+            "POSTGRES_DB": "docpipelinedb",
             "S3_BUCKET": storage.bucket.bucket_name,
             "RABBITMQ_HOST": mq_host,
             "RABBITMQ_PORT": "5671",
@@ -167,6 +167,9 @@ class ComputeStack(Stack):
                 subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
             ),
             desired_count=1,
+            min_healthy_percent=100,
+            max_healthy_percent=200,
+            circuit_breaker=ecs.DeploymentCircuitBreaker(rollback=True),
         )
         listener.add_targets(
             "ApiTarget",
@@ -184,6 +187,9 @@ class ComputeStack(Stack):
             vpc_subnets=ec2.SubnetSelection(
                 subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
             ),
+            min_healthy_percent=0,
+            max_healthy_percent=100,
+            circuit_breaker=ecs.DeploymentCircuitBreaker(rollback=True),
             desired_count=1,
         )
 
