@@ -20,8 +20,9 @@ class NetworkStack(Stack):
         self.rds_sg = ec2.SecurityGroup(self, "RdsSg", vpc=self.vpc)
         self.mq_sg = ec2.SecurityGroup(self, "MqSg", vpc=self.vpc)
 
+        self.alb_sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(80))
         self.alb_sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(443))
-        self.api_sg.add_ingress_rule(self.alb_sg, ec2.Port.tcp(8000))
+        self.api_sg.add_ingress_rule(self.alb_sg, ec2.Port.tcp(8080))
         self.rds_sg.add_ingress_rule(self.api_sg, ec2.Port.tcp(5432))
         self.rds_sg.add_ingress_rule(self.worker_sg, ec2.Port.tcp(5432))
         self.mq_sg.add_ingress_rule(self.api_sg, ec2.Port.tcp(5671))
