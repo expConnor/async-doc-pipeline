@@ -109,6 +109,10 @@ class ComputeStack(Stack):
             cpu=512,
             memory_limit_mib=1024,
             task_role=api_role,  # type: ignore
+            runtime_platform=ecs.RuntimePlatform(
+                cpu_architecture=ecs.CpuArchitecture.ARM64,
+                operating_system_family=ecs.OperatingSystemFamily.LINUX,
+            ),
         )
         api_task_def.add_container(
             "ApiContainer",
@@ -128,6 +132,10 @@ class ComputeStack(Stack):
             cpu=1024,
             memory_limit_mib=2048,
             task_role=worker_role,  # type: ignore
+            runtime_platform=ecs.RuntimePlatform(
+                cpu_architecture=ecs.CpuArchitecture.ARM64,
+                operating_system_family=ecs.OperatingSystemFamily.LINUX,
+            ),
         )
         worker_task_def.add_container(
             "WorkerContainer",
