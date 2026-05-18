@@ -16,3 +16,5 @@ COPY shared/ ./shared/
 COPY api/ ./api/
 
 EXPOSE 8080
+
+CMD ["uvicorn", "api.app:app", "--host", "0.0.0.0", "--port", "8080"]
