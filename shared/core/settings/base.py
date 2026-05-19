@@ -48,8 +48,9 @@ class BaseAppSettings(BaseSettings):
     @computed_field
     @property
     def rabbitmq_url(self) -> str:
+        scheme = "amqps" if self.rabbitmq_port == 5671 else "amqp"
         return (
-            f"amqp://{self.rabbitmq_user}:{self.rabbitmq_password}"
+            f"{scheme}://{self.rabbitmq_user}:{self.rabbitmq_password}"
             f"@{self.rabbitmq_host}:{self.rabbitmq_port}/"
         )
 
