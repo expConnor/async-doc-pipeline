@@ -12,6 +12,7 @@ RUN pip install --upgrade pip \
     && pip install poetry \
     && poetry install --only main,api --no-root --no-interaction --no-ansi
 
+COPY alembic.ini ./
 COPY shared/ ./shared/
 COPY api/ ./api/
 

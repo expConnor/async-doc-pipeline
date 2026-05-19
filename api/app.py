@@ -1,6 +1,11 @@
+import asyncio
 import json
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 import structlog
+from alembic import command
+from alembic.config import Config
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -16,7 +21,18 @@ from api.middleware import LoggingMiddleware
 from api.routes import documents, health, jobs
 
 logger = structlog.get_logger()
-app = FastAPI()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(
+        None, lambda: command.upgrade(Config("alembic.ini"), "head")
+    )
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(LoggingMiddleware)
 
