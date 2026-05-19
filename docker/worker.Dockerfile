@@ -14,3 +14,5 @@ RUN pip install --upgrade pip \
 
 COPY shared/ ./shared/
 COPY worker/ ./worker/
+
+CMD ["python", "-m", "worker.main"]
