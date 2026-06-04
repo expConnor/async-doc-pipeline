@@ -1,4 +1,4 @@
-# doc-pipeline
+# Event-Driven Document Ingestion Pipeline
 
 An async PDF-to-Markdown processing pipeline built for agentic systems — converts user-uploaded PDFs into structured Markdown for LLM consumption. The focus is the infrastructure and pipeline supporting the conversion, not the parsing technology itself.
 
@@ -15,27 +15,35 @@ Deployed end-to-end on AWS with CDK-managed infrastructure. The failure modes it
 ## Design Decisions
 
 ### Queue-depth backpressure
+
 Before creating a job, the API queries the broker for the current queue depth. If it's at or above the threshold, the request is rejected with 429 immediately — no Job record is created. This acts on actual consumer lag rather than a per-client counter, so it reflects real system pressure. Traditional rate limiting wouldn't prevent a burst of legitimate clients from saturating the workers.
 
 ### Atomic status gate to prevent duplicate job execution
+
 The worker commits the `STARTED` transition in its own isolated session before any processing begins. A concurrent redelivery of the same message loads the job, sees the status is no longer `QUEUED`, and ack-drops without doing any work. The early, separate commit is what makes this safe — if the status change were bundled into the processing transaction, a mid-process crash would leave the job `QUEUED` and two concurrent redeliveries could both race past the check.
 
 For the narrow window between the initial status check and the `STARTED` write, the update uses a compare-and-swap guard (`expected_status=QUEUED`). If two workers somehow both pass the check, only one lands the write — the other gets a `JobStateConflictException` and ack-drops.
 
 ### At-least-once delivery with idempotent consumers
+
 RabbitMQ guarantees at-least-once delivery: after a crash, unacked messages are redelivered. The consumer is designed around this. Every message handler checks job status before claiming the job and ack-drops if status isn't `QUEUED`. The result is at-most-once execution despite at-least-once delivery — redeliveries are always safe.
 
 ### DB-managed retry with terminal failure semantics
+
 On any processing exception, the consumer catches it and decides purely from DB state: if `attempts < max_attempts`, the job is reset to `QUEUED` and explicitly re-enqueued; if exhausted, it's marked `FAILED` and nothing touches it again. The message is always `ack`ed on failure — re-delivery is never used for retry. The broker carries no retry logic; the DB is the single source of truth. `FAILED` is terminal.
 
 ### Serial consumer model for CPU-bound workloads
+
 `prefetch_count=1` means RabbitMQ delivers at most one message at a time per consumer channel. PDF parsing is CPU-bound and GIL-limited, so in-process concurrency wouldn't increase throughput — it would just interleave work on a single core. Each worker processes one job at a time; throughput scales by running more workers, not more goroutines.
 
 ### Graceful shutdown with in-flight drain
+
 `SIGTERM`/`SIGINT` set an `asyncio.Event`. The consume loop checks the flag before pulling the next message. The active task is wrapped in `asyncio.shield()` so cancellation doesn't interrupt it mid-flight. The worker finishes the current job, acks, then closes the channel and connection cleanly. `SIGKILL` is safe as a last resort because of the idempotency gate — the redelivered message will be ack-dropped.
 
 ### Full lifecycle tracing
+
 Every job records `queued_at`, `started_at`, `completed_at`, and `failed_at`. This enables direct observability queries without any external tracing infrastructure:
+
 - Queue delay: `started_at - queued_at`
 - Processing latency: `completed_at - started_at`
 - Failure rate: jobs where `failed_at IS NOT NULL`
@@ -112,11 +120,11 @@ cp .env.example .env  # fill in AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, S3_BUC
 docker compose up
 ```
 
-| Service | Address |
-|---|---|
-| API | http://localhost:8080 |
-| API docs | http://localhost:8080/docs |
-| RabbitMQ management | http://localhost:15672 |
+| Service             | Address                    |
+| ------------------- | -------------------------- |
+| API                 | http://localhost:8080      |
+| API docs            | http://localhost:8080/docs |
+| RabbitMQ management | http://localhost:15672     |
 
 All requests require an `X-API-Key` header. Alembic migrations run automatically on API startup.
 
