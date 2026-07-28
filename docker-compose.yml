@@ -8,6 +8,7 @@ services:
     environment:
       POSTGRES_HOST: postgres
       RABBITMQ_HOST: rabbitmq
+      S3_ENDPOINT_URL: http://minio:9000
     env_file:
       - .env
     ports:
@@ -15,6 +16,9 @@ services:
     volumes:
       - ./shared:/workspace/shared
       - ./api:/workspace/api
+    depends_on:
+      minio:
+        condition: service_healthy
 
   worker:
     build:
@@ -25,6 +29,7 @@ services:
     environment:
       POSTGRES_HOST: postgres
       RABBITMQ_HOST: rabbitmq
+      S3_ENDPOINT_URL: http://minio:9000
     env_file:
       - .env
     volumes:
@@ -34,6 +39,8 @@ services:
       postgres:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      minio:
         condition: service_healthy
 
   postgres:
@@ -70,3 +77,33 @@ services:
       interval: 10s
       timeout: 10s
       retries: 5
+
+  minio:
+    image: minio/minio
+    container_name: doc-pipeline-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "9000:9000" # S3 API
+      - "9001:9001" # web console
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  createbuckets:
+    image: minio/mc
+    container_name: doc-pipeline-createbuckets
+    depends_on:
+      minio:
+        condition: service_healthy
+    env_file:
+      - .env
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD &&
+      mc mb --ignore-existing local/$$S3_BUCKET
+      "
