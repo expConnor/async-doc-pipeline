@@ -63,6 +63,9 @@ class Container:
         return S3StorageService(
             region=self._settings.aws_region,
             bucket=self._settings.s3_bucket,
+            endpoint_url=self._settings.s3_endpoint_url,
+            access_key=self._settings.s3_access_key,
+            secret_key=self._settings.s3_secret_key,
         )
 
     def parser(self) -> IDocumentParser:

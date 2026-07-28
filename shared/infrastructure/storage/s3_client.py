@@ -1,6 +1,7 @@
 import asyncio
 
 import boto3
+from botocore.config import Config
 from botocore.exceptions import ClientError
 
 from ...core.exceptions import StorageException
@@ -8,9 +9,23 @@ from ...interfaces.infrastructure.storage import IStorageService
 
 
 class S3StorageService(IStorageService):
-    def __init__(self, bucket: str, region: str) -> None:
+    def __init__(
+        self,
+        bucket: str,
+        region: str,
+        endpoint_url: str | None = None,
+        access_key: str | None = None,
+        secret_key: str | None = None,
+    ) -> None:
         self._bucket = bucket
-        self._client = boto3.client("s3", region_name=region)
+        client_kwargs: dict = {"region_name": region}
+        if endpoint_url is not None:
+            client_kwargs["endpoint_url"] = endpoint_url
+            client_kwargs["config"] = Config(s3={"addressing_style": "path"})
+        if access_key is not None:
+            client_kwargs["aws_access_key_id"] = access_key
+            client_kwargs["aws_secret_access_key"] = secret_key
+        self._client = boto3.client("s3", **client_kwargs)
 
     async def generate_upload_url(self, object_key: str) -> str:
         try:

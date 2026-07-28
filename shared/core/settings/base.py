@@ -36,6 +36,9 @@ class BaseAppSettings(BaseSettings):
 
     s3_bucket: str
     aws_region: str = "us-east-1"
+    s3_endpoint_url: str | None = None
+    s3_access_key: str | None = None
+    s3_secret_key: str | None = None
 
     @computed_field
     @property
