@@ -56,3 +56,5 @@ cache/
 *.key
 *.crt
 .aws/
+
+CLAUDE.md
