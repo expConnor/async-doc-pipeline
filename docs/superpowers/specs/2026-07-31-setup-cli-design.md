@@ -4,7 +4,7 @@
 
 ## Goal
 
-This is the first of three planned subsystems supporting extreme-load testing of the pipeline (the other two — a load generator and a monitoring/observability layer — are separate, later designs). This subsystem gives a fresh clone of the repo a clean, one-command path from `git clone` to "ready to hammer with load": apply migrations, and provision one or many accounts with API keys.
+This is the first of three planned subsystems supporting extreme-load testing of the pipeline (the other two — a load generator and a monitoring/observability layer — are separate, later designs). This subsystem gives a fresh clone of the repo a clean, one-command path from `git clone` to "ready to hammer with load": apply migrations, and provision one or many accounts with API keys. Since the Makefile is meant to be the one front door a new clone discovers everything through, it also picks up the general dev-workflow commands (test, lint, format, git hooks) that CLAUDE.md already documents but nothing currently wires together in one place.
 
 In scope:
 
@@ -13,6 +13,8 @@ In scope:
 - One account-creation command, `account create --count N` (default `N=1`), replacing the ad hoc `local/create_account.py` script and covering both the single-account and bulk-provisioning cases with a single implementation. Bulk provisioning matters because simulating extreme load means many concurrent simulated clients, not one.
 - Environment bootstrap (`setup`): runs Alembic migrations programmatically and creates one default account (`count=1`), so a fresh clone is fully usable after one command.
 - Environment wipe (`make nuke`): a pure Makefile target (no Python) that deletes `local/accounts.csv` and runs `docker compose down -v && docker compose up -d`, so repeated load-test cycles have a one-command way back to an empty, freshly-started stack.
+- General dev-workflow targets (`make test`, `make lint`, `make format`): thin wrappers around commands CLAUDE.md already documents (`pytest`, `ruff check .`, `ruff format .`).
+- Git hook installation as part of `make setup`: `.pre-commit-config.yaml` is already tracked, but `pre-commit` isn't a project dependency and nothing runs `pre-commit install` on a fresh clone, so the hook currently never gets wired up for anyone but the original author.
 
 Out of scope (explicit non-goals):
 
@@ -74,6 +76,14 @@ Every other Makefile target wraps a `cli.main` command; `nuke` doesn't, on purpo
 
 Naming: `setup` (not `bootstrap`) for the "get this project into a usable state" command, and `nuke` for the destructive wipe. `setup` matches the closest common precedent (Rails' `bin/setup` — migrate + seed a fresh DB) and reads as the broader, more complete operation; `bootstrap`, where it's used in Makefile conventions elsewhere, usually refers to something narrower like installing dependencies. `nuke` is an established colloquialism for "destroy and start clean," and — unlike a blander name like `clean` or `reset` — it reads as appropriately alarming for a command that deletes local data and Docker volumes.
 
+### 7. `pre-commit` becomes a Poetry dev dependency; `pre-commit install` runs from `make setup`
+
+Two distinct problems, easy to conflate: whether the `pre-commit` *tool* is available at all, and whether git is actually wired to call it. `poetry install` only solves the first — it makes `pre-commit` an importable/runnable package inside the project's virtualenv, exactly like `ruff` or `pytest` already are. It does nothing to git.
+
+Making git call it requires running `pre-commit install`, which writes a script into `.git/hooks/pre-commit`. That directory is part of `.git/`, which is never copied by `git clone` — every fresh clone starts with git's empty default hook stubs regardless of what's configured in the tracked `.pre-commit-config.yaml`. So this step can't be skipped or inferred; it has to run explicitly, once, per clone.
+
+Since every other command in this Makefile is invoked as `poetry run ...`, `pre-commit` has to be a Poetry dependency for `poetry run pre-commit install` to resolve at all — `poetry run` only finds executables inside the project's own virtualenv, not ones installed globally via `pipx`/Homebrew (a more common setup for `pre-commit` elsewhere, but inconsistent with how this Makefile treats every other dev tool). `setup` runs it as a second shell line, not through `cli.main`, for the same reason `nuke`'s operations stay in the Makefile (Design Decision 6): it's a single existing command with no logic to express in Python.
+
 ## Components
 
 ```
@@ -83,7 +93,7 @@ cli/
     ├── account.py           # `account create --count N`
     └── bootstrap.py         # `setup`, `migrate`
 
-Makefile                     # setup, seed, migrate, nuke, help targets
+Makefile                     # setup, seed, migrate, nuke, test, lint, format, help targets
 ```
 
 ### `cli/commands/account.py`
@@ -100,10 +110,11 @@ Makefile                     # setup, seed, migrate, nuke, help targets
 ### `Makefile`
 
 ```makefile
-.PHONY: setup seed migrate nuke help
+.PHONY: setup seed migrate nuke test lint format help
 
-setup:       ## Bootstrap a fresh clone (or post-nuke state): migrate + create default account
+setup:       ## Bootstrap a fresh clone (or post-nuke state): migrate + create default account + install git hooks
 	poetry run python -m cli.main setup
+	poetry run pre-commit install
 
 seed:        ## Bulk-create accounts. Usage: make seed COUNT=50
 	poetry run python -m cli.main account create --count $(COUNT)
@@ -116,17 +127,26 @@ nuke:        ## Wipe local dev state: delete accounts.csv, destroy & restart Doc
 	docker compose down -v
 	docker compose up -d
 
+test:        ## Run the test suite
+	poetry run pytest
+
+lint:        ## Check code style
+	poetry run ruff check .
+
+format:      ## Auto-format code
+	poetry run ruff format .
+
 help:        ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*## "}; {printf "%-15s %s\n", $$1, $$2}'
 ```
 
 ## Phases
 
-**Phase 1 — CLI foundation + account creation.** Add `typer` to `pyproject.toml`. Create `cli/main.py` and `cli/commands/account.py` with `_create_accounts()` and the `create --count N` command, ported and generalized from `local/create_account.py`. Confirms the Typer wiring, the append-to-CSV behavior, and `python -m cli.main` invocation all work before building anything on top.
+**Phase 1 — CLI foundation + account creation.** Add `typer` and `pre-commit` to `pyproject.toml`. Create `cli/main.py` and `cli/commands/account.py` with `_create_accounts()` and the `create --count N` command, ported and generalized from `local/create_account.py`. Confirms the Typer wiring, the append-to-CSV behavior, and `python -m cli.main` invocation all work before building anything on top.
 
 **Phase 2 — Environment bootstrap.** Add `cli/commands/bootstrap.py` with `migrate()` and `setup()` (calls `migrate()` then `account._create_accounts(count=1, ...)`). Wire both into `cli/main.py`.
 
-**Phase 3 — Makefile front door.** Add the `Makefile` with `setup`, `seed`, `migrate`, `help` targets (each delegating to the corresponding `cli.main` command) and `nuke` (pure shell, no `cli.main` involvement).
+**Phase 3 — Makefile front door.** Add the `Makefile` with `setup` (also runs `pre-commit install`), `seed`, `migrate`, `test`, `lint`, `format`, `help` targets (each delegating to the corresponding `cli.main` command or an existing documented command) and `nuke` (pure shell, no `cli.main` involvement).
 
 ## Error Handling
 
@@ -138,7 +158,7 @@ No new exception hierarchy — this is dev/ops tooling, not request-handling cod
 
 ## Testing
 
-No inline tests during implementation, consistent with deferring test-writing to the end of the project. Each phase gets a manual smoke check instead: Phase 1 — run `account create` and `account create --count 5`, confirm the DB rows and that `local/accounts.csv` has a single header and the right number of appended rows across both runs. Phase 2 — run `setup` against a fresh empty database, confirm migrations apply and one account is appended to `local/accounts.csv`. Phase 3 — run each `make` target from a clean shell, including `make nuke` followed by `make setup` to confirm the full wipe-and-rebuild cycle works.
+No inline tests during implementation, consistent with deferring test-writing to the end of the project. Each phase gets a manual smoke check instead: Phase 1 — run `account create` and `account create --count 5`, confirm the DB rows and that `local/accounts.csv` has a single header and the right number of appended rows across both runs. Phase 2 — run `setup` against a fresh empty database, confirm migrations apply and one account is appended to `local/accounts.csv`. Phase 3 — run each `make` target from a clean shell, including `make nuke` followed by `make setup` to confirm the full wipe-and-rebuild cycle works, `make setup` leaving a working hook at `.git/hooks/pre-commit`, and `make test`/`make lint`/`make format` each running the underlying command without error.
 
 ## Open Questions
 
