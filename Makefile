@@ -5,7 +5,7 @@ COUNT ?= 1
 
 setup:       ## Bootstrap a fresh clone (or post-nuke state): deps, .env, stack, migrations, default account, git hooks
 	poetry install
-	cp -n .env.example .env
+	test -f .env || cp .env.example .env
 	docker compose up -d --wait
 	poetry run python -m cli.main setup
 	poetry run pre-commit install
