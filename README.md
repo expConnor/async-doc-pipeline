@@ -113,12 +113,13 @@ Malformed JSON or missing `job_id` is caught immediately, logged, and acked. A s
 
 ## Local Dev
 
-**Prerequisites:** Docker, AWS credentials (S3 uses real AWS even locally)
+**Prerequisites:** Poetry, Docker, `make`
 
 ```bash
-cp .env.example .env  # fill in AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, S3_BUCKET
-docker compose up
+make setup
 ```
+
+See `make help` for the rest of the available commands (`seed`, `migrate`, `nuke`, `test`, `lint`, `format`).
 
 | Service             | Address                    |
 | ------------------- | -------------------------- |
@@ -126,7 +127,7 @@ docker compose up
 | API docs            | http://localhost:8080/docs |
 | RabbitMQ management | http://localhost:15672     |
 
-All requests require an `X-API-Key` header. Alembic migrations run automatically on API startup.
+All requests require an `X-API-Key` header. Alembic migrations are applied by `make setup` (or `make migrate` on their own) — not automatically on API startup.
 
 ---
 
