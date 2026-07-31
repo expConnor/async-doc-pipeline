@@ -17,10 +17,32 @@ account creation — avoids this entirely.
 import asyncio
 from pathlib import Path
 
+import boto3
 from alembic import command
 from alembic.config import Config
+from botocore.config import Config as BotoConfig
+from botocore.exceptions import ClientError
 
 from cli.commands import account
+from shared.core.config import get_settings
+
+
+def _ensure_bucket() -> None:
+    settings = get_settings()
+    client_kwargs: dict = {"region_name": settings.aws_region}
+    if settings.s3_endpoint_url is not None:
+        client_kwargs["endpoint_url"] = settings.s3_endpoint_url
+        client_kwargs["config"] = BotoConfig(s3={"addressing_style": "path"})
+    if settings.s3_access_key is not None:
+        client_kwargs["aws_access_key_id"] = settings.s3_access_key
+        client_kwargs["aws_secret_access_key"] = settings.s3_secret_key
+    client = boto3.client("s3", **client_kwargs)
+
+    try:
+        client.create_bucket(Bucket=settings.s3_bucket)
+    except ClientError as e:
+        if e.response["Error"]["Code"] != "BucketAlreadyOwnedByYou":
+            raise
 
 
 def migrate() -> None:
@@ -28,6 +50,7 @@ def migrate() -> None:
 
 
 def setup() -> None:
+    _ensure_bucket()
     migrate()
     asyncio.run(
         account._create_accounts(count=1, out=Path("local/accounts.csv"))
