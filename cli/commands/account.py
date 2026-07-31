@@ -21,30 +21,33 @@ app = typer.Typer(help="Manage accounts.")
 
 
 async def _create_accounts(count: int, out: Path) -> None:
+    out.parent.mkdir(parents=True, exist_ok=True)
+
     settings = get_settings()
     engine = create_async_engine(**settings.sqlalchemy_engine_props)
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
-    rows: list[tuple[int, str]] = []
+    pending: list[tuple[Account, str]] = []
     async with session_factory() as session:
         for _ in range(count):
             api_key = secrets.token_urlsafe(32)
             key_hash = hashlib.sha256(api_key.encode()).hexdigest()
             account = Account(api_key_hash=key_hash)
             session.add(account)
-            await session.flush()
-            rows.append((account.id, api_key))
+            pending.append((account, api_key))
+        await session.flush()
+        rows = [(account.id, api_key) for account, api_key in pending]
         await session.commit()
 
     await engine.dispose()
 
-    out.parent.mkdir(parents=True, exist_ok=True)
     write_header = not out.exists()
     with out.open("a", newline="") as f:
         writer = csv.writer(f)
         if write_header:
             writer.writerow(["account_id", "api_key"])
         writer.writerows(rows)
+    out.chmod(0o600)
 
     print(f"created {count} account(s), wrote to {out}")
 
@@ -53,6 +56,7 @@ def create(
     count: int = typer.Option(1, min=1),
     out: Path = Path("local/accounts.csv"),
 ) -> None:
+    """Create one or more accounts and append their API keys to a CSV file."""
     asyncio.run(_create_accounts(count, out))
 
 

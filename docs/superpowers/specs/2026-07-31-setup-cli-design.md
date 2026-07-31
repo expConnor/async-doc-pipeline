@@ -24,7 +24,7 @@ Out of scope (explicit non-goals):
 - Documents and jobs stay out of this CLI entirely. Those already have API endpoints (`POST /documents`, `POST /documents/{id}/process`, `GET /jobs/{id}`) and will be driven through Postman instead.
 - `local/create_document.py`, `local/upload_file.py`, `local/process_document.py` are untouched by this work. Whether to retire them in favor of Postman is a separate decision (see Open Questions). `local/create_account.py` is different — it is deleted in Phase 1, since `account create` fully supersedes it.
 - The load generator and monitoring/observability subsystems. Referenced here only as context for why bulk account provisioning matters.
-- MinIO bucket creation — already handled automatically by the `createbuckets` service in `docker-compose.yml`; `setup` does not need to touch storage.
+- MinIO bucket creation — already handled automatically by the `createbuckets` service in `docker-compose.yml`; `setup` does not need to touch storage. (Amended: superseded during implementation — the `createbuckets` one-shot container broke `docker compose up -d --wait`'s exit code, so it was removed and bucket creation moved into `cli.main setup` via boto3.)
 - A DB-only reset command (truncating tables in-process) was considered and dropped: `docker compose down -v` already wipes Postgres/MinIO/RabbitMQ volumes in one shot, so a separate Python/SQL reset path would just be a worse version of a command that already exists. `make nuke` does not re-run `setup` afterward — it stops once the containers are back up and healthy, leaving an empty unmigrated DB; running `make setup` again is a deliberate separate step.
 
 ## Design Decisions

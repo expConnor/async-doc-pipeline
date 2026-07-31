@@ -46,10 +46,12 @@ def _ensure_bucket() -> None:
 
 
 def migrate() -> None:
+    """Apply Alembic migrations to head."""
     command.upgrade(Config("alembic.ini"), "head")
 
 
 def setup() -> None:
+    """Bootstrap a fresh environment: bucket, migrations, default account."""
     _ensure_bucket()
     migrate()
     asyncio.run(

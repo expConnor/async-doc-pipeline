@@ -3,6 +3,9 @@
 # Default so bare `make seed` is valid, not a Typer usage error.
 COUNT ?= 1
 
+# Bare `make` should be safe (show help), not kick off setup's full install + stack.
+.DEFAULT_GOAL := help
+
 setup:       ## Bootstrap a fresh clone (or post-nuke state): deps, .env, stack, migrations, default account, git hooks
 	poetry install
 	test -f .env || cp .env.example .env
@@ -16,7 +19,7 @@ seed:        ## Bulk-create accounts. Usage: make seed COUNT=50
 migrate:     ## Apply Alembic migrations only (setup already includes this)
 	poetry run python -m cli.main migrate
 
-nuke:        ## Wipe local dev state: delete accounts.csv, destroy & restart Docker volumes fresh
+nuke:        ## Wipe local dev state: delete accounts.csv, destroy & restart Docker volumes fresh — run 'make setup' afterward
 	rm -f local/accounts.csv
 	docker compose down -v
 	docker compose up -d --wait
