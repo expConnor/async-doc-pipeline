@@ -66,10 +66,13 @@ failed, 0 if all passed.
 
 **60s per-job timeout sizing:** the worker processes one job at a time
 (`prefetch_count=1`), but a measured real run showed ~200–500ms per job for
-a one-page PDF. Even fully serialized, 100 jobs drain in well under 60s, so
-a fixed 60s timeout (not scaled to `COUNT`) is safe at this scale. Not
-designed to gracefully scale to arbitrarily large `COUNT` — if that becomes
-a real need, the timeout can be revisited then.
+a one-page PDF. Even fully serialized, 100 jobs is 100 × ~500ms = ~50s in the
+worst case — close to, not "well under," a fixed 60s timeout, leaving only
+~10s of margin at `COUNT=100`. A live `COUNT=100` run confirmed this: the
+slowest iteration finished at 47.8s. Since the worker is serial, drain time
+scales linearly with `COUNT` while a fixed timeout doesn't, so the timeout
+now scales with it: `POLL_TIMEOUT_SECONDS = 60 + count`, giving every run a
+consistent ~60s of margin regardless of size.
 
 ## `local/sample.pdf`
 

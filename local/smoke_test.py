@@ -13,15 +13,19 @@ BASE_URL = "http://localhost:8080"
 ACCOUNTS_CSV = Path(__file__).parent / "accounts.csv"
 SAMPLE_PDF = Path(__file__).parent / "sample.pdf"
 POLL_INTERVAL_SECONDS = 1
-POLL_TIMEOUT_SECONDS = 60
+BASE_POLL_TIMEOUT_SECONDS = 60
 
 # The API container resolves S3/MinIO via the container-network hostname
 # "minio" (see docker-compose.yml's S3_ENDPOINT_URL override), so presigned
 # upload URLs the API returns contain that hostname literally. It doesn't
 # resolve from the host machine. MinIO's port is published to the host as
-# localhost:9000, so redirect just that one hostname to 127.0.0.1 — the
+# localhost:9000, so redirect just that one hostname to localhost — the
 # request still sends "Host: minio:9000" (the header the presigned URL's
-# SigV4 signature covers), it just connects to 127.0.0.1 at the TCP level.
+# SigV4 signature covers), it just connects to localhost at the TCP level.
+# Both the str and bytes forms are checked because httpx resolves through
+# anyio, which passes the hostname as bytes to socket.getaddrinfo (confirmed
+# empirically — a str-only check does not catch it and the upload fails with
+# a DNS error).
 _real_getaddrinfo = socket.getaddrinfo
 
 
@@ -44,6 +48,7 @@ async def _run_one(
     upload_client: httpx.AsyncClient,
     index: int,
     pdf_bytes: bytes,
+    poll_timeout_seconds: float,
 ) -> bool:
     start = time.monotonic()
     try:
@@ -62,7 +67,7 @@ async def _run_one(
         process_response.raise_for_status()
         job_id = process_response.json()["id"]
 
-        deadline = time.monotonic() + POLL_TIMEOUT_SECONDS
+        deadline = time.monotonic() + poll_timeout_seconds
         while time.monotonic() < deadline:
             job_response = await api_client.get(f"/jobs/{job_id}")
             job_response.raise_for_status()
@@ -78,7 +83,7 @@ async def _run_one(
 
             await asyncio.sleep(POLL_INTERVAL_SECONDS)
 
-        print(f"[{index}] FAILED: timed out after {POLL_TIMEOUT_SECONDS}s")
+        print(f"[{index}] FAILED: timed out after {poll_timeout_seconds:.0f}s")
         return False
     except httpx.HTTPError as e:
         print(f"[{index}] FAILED: {e}")
@@ -88,6 +93,11 @@ async def _run_one(
 async def _main(count: int) -> int:
     api_key = _load_api_key()
     pdf_bytes = SAMPLE_PDF.read_bytes()
+    # The worker is deliberately serial (prefetch_count=1), so drain time
+    # scales linearly with count. Scale the per-iteration timeout with it so
+    # a busier machine or larger COUNT doesn't produce false-positive
+    # timeouts on an otherwise healthy run.
+    poll_timeout_seconds = BASE_POLL_TIMEOUT_SECONDS + count
 
     async with (
         httpx.AsyncClient(
@@ -97,12 +107,23 @@ async def _main(count: int) -> int:
     ):
         results = await asyncio.gather(
             *(
-                _run_one(api_client, upload_client, i, pdf_bytes)
+                _run_one(
+                    api_client,
+                    upload_client,
+                    i,
+                    pdf_bytes,
+                    poll_timeout_seconds,
+                )
                 for i in range(1, count + 1)
-            )
+            ),
+            return_exceptions=True,
         )
 
-    passed = sum(results)
+    for i, result in enumerate(results, start=1):
+        if isinstance(result, BaseException):
+            print(f"[{i}] FAILED: {result}")
+
+    passed = sum(1 for r in results if r is True)
     print(f"{passed}/{count} passed")
     return 0 if passed == count else 1
 
