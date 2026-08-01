@@ -1,7 +1,8 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import insert, select
+from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,19 +17,25 @@ class ArtifactRepository(IArtifactRepository):
         self, session: AsyncSession, dto: CreateArtifactDTO
     ) -> ArtifactDTO:
         try:
-            query = (
-                insert(Artifact)
-                .values(
-                    job_id=dto.job_id,
-                    document_id=dto.document_id,
-                    artifact_type=dto.artifact_type,
-                    object_key=dto.object_key,
-                    created_at=datetime.now(),
-                )
-                .returning(Artifact)
+            base_stmt = insert(Artifact).values(
+                job_id=dto.job_id,
+                document_id=dto.document_id,
+                artifact_type=dto.artifact_type,
+                object_key=dto.object_key,
+                created_at=datetime.now(),
             )
-            result = await session.execute(query)
-            return self._to_dto(result.scalar_one())
+            stmt = base_stmt.on_conflict_do_update(
+                index_elements=["document_id", "artifact_type"],
+                set_={
+                    "job_id": base_stmt.excluded.job_id,
+                    "object_key": base_stmt.excluded.object_key,
+                },
+            ).returning(Artifact)
+            result = await session.execute(stmt)
+            artifact = result.scalar_one()
+            # Refresh to get database values, not cached session values
+            await session.refresh(artifact)
+            return self._to_dto(artifact)
         except SQLAlchemyError as e:
             raise DatabaseException() from e
 

@@ -1,7 +1,11 @@
-import pytest
+from datetime import datetime
 
-from shared.core.exceptions import DatabaseException
+import pytest
+from sqlalchemy import insert
+
 from shared.dtos.artifact import ArtifactType, CreateArtifactDTO
+from shared.dtos.job import JobStatus
+from shared.infrastructure.models import Job
 from shared.infrastructure.repositories.artifact import ArtifactRepository
 
 
@@ -29,19 +33,59 @@ async def test_create_success(repo, db_session, account, document, job):
     assert dto.created_at is not None
 
 
-async def test_create_duplicate_object_key_raises_database_exception(
+async def test_create_same_document_and_type_upserts(
     repo, db_session, account, document, job, artifact
 ):
-    with pytest.raises(DatabaseException):
-        await repo.create(
-            db_session,
-            CreateArtifactDTO(
-                job_id=job.id,
-                document_id=document.id,
-                artifact_type=ArtifactType.MARKDOWN,
-                object_key="artifacts/1/test.md",  # same as `artifact` fixture
-            ),
+    """Reprocessing overwrites the artifact row rather than raising."""
+    result = await repo.create(
+        db_session,
+        CreateArtifactDTO(
+            job_id=job.id,
+            document_id=document.id,
+            artifact_type=ArtifactType.MARKDOWN,
+            object_key="artifacts/1/test.md",
+        ),
+    )
+
+    assert result.id == artifact.id
+    assert result.object_key == "artifacts/1/test.md"
+
+    rows = await repo.list_by_document_id(db_session, document.id, account.id)
+    assert len(rows) == 1
+
+
+async def test_create_upsert_refreshes_job_id(
+    db_session, repo, account, document, job, artifact
+):
+    """The surviving row points at the run that most recently produced it."""
+    second_job = await db_session.execute(
+        insert(Job)
+        .values(
+            account_id=account.id,
+            document_id=document.id,
+            status=JobStatus.COMPLETED,
+            artifact_types=[ArtifactType.MARKDOWN],
+            attempts=1,
+            max_attempts=3,
+            created_at=datetime.now(),
+            queued_at=datetime.now(),
         )
+        .returning(Job)
+    )
+    second_job = second_job.scalar_one()
+
+    result = await repo.create(
+        db_session,
+        CreateArtifactDTO(
+            job_id=second_job.id,
+            document_id=document.id,
+            artifact_type=ArtifactType.MARKDOWN,
+            object_key="artifacts/1/test.md",
+        ),
+    )
+
+    assert result.id == artifact.id
+    assert result.job_id == second_job.id
 
 
 async def test_list_by_document_id_returns_artifacts(

@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import Enum as SQLEnum
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, UniqueConstraint
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -75,6 +75,13 @@ class Job(Base):
 
 class Artifact(Base):
     __tablename__ = "artifacts"
+    __table_args__ = (
+        UniqueConstraint(
+            "document_id",
+            "artifact_type",
+            name="artifacts_document_id_artifact_type_key",
+        ),
+    )
     id: Mapped[uuid.UUID] = mapped_column(
         PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
@@ -88,7 +95,7 @@ class Artifact(Base):
         SQLEnum(ArtifactType, name="artifact_type_enum"),
         nullable=False,
     )
-    object_key: Mapped[str] = mapped_column(unique=True, nullable=False)
+    object_key: Mapped[str] = mapped_column(nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         default=func.now(), nullable=False
     )
