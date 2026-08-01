@@ -2,6 +2,7 @@ import asyncio
 import json
 import time
 from typing import TYPE_CHECKING
+from uuid import UUID
 
 import aio_pika
 import structlog
@@ -71,8 +72,8 @@ class RabbitMQConsumer(IMessageConsumer):
 
         try:
             payload = json.loads(msg.body)
-            job_id = payload["job_id"]
-        except (json.JSONDecodeError, KeyError, TypeError):
+            job_id = UUID(str(payload["job_id"]))
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError):
             logger.warning("consumer.poison_message_dropped")
             await msg.ack()
             return
@@ -134,7 +135,7 @@ class RabbitMQConsumer(IMessageConsumer):
 
     async def _handle_failure(
         self,
-        job_id: int,
+        job_id: UUID,
         attempts: int,
         max_attempts: int,
         exc: Exception,
@@ -151,7 +152,7 @@ class RabbitMQConsumer(IMessageConsumer):
                     )
                 try:
                     await self._messaging.enqueue(
-                        self._queue, {"job_id": job_id}
+                        self._queue, {"job_id": str(job_id)}
                     )
                     logger.warning(
                         "consumer.job_failed_requeued",

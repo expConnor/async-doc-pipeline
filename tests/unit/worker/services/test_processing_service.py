@@ -1,4 +1,5 @@
 from datetime import datetime
+from uuid import UUID
 
 import pytest
 
@@ -12,13 +13,16 @@ from shared.dtos.artifact import ArtifactType, CreateArtifactDTO
 from shared.dtos.document import DocumentDTO
 from shared.dtos.job import JobDTO, JobStatus
 
+JOB_ID = UUID("018f4a2b-7c3d-4a1e-8b1e-2a9f5c6d4e03")
+DOCUMENT_ID = UUID("018f4a2b-7c3d-4a1e-8b1e-2a9f5c6d4e01")
+
 
 @pytest.fixture
 def job_dto():
     return JobDTO(
-        id=10,
+        id=JOB_ID,
         account_id=1,
-        document_id=1,
+        document_id=DOCUMENT_ID,
         status=JobStatus.STARTED,
         artifact_types=[ArtifactType.MARKDOWN],
         attempts=1,
@@ -36,7 +40,7 @@ def job_dto():
 @pytest.fixture
 def document_dto():
     return DocumentDTO(
-        id=1,
+        id=DOCUMENT_ID,
         object_key="uploads/1/report.pdf",
         file_name="report.pdf",
         account_id=1,
@@ -48,7 +52,7 @@ async def test_job_not_found_raises(session, processing_service, job_repo):
     job_repo.get_for_processing.return_value = None
 
     with pytest.raises(JobNotFoundException):
-        await processing_service.process(session, 10)
+        await processing_service.process(session, JOB_ID)
 
 
 async def test_document_not_found_raises(
@@ -58,7 +62,7 @@ async def test_document_not_found_raises(
     document_repo.get_by_id.return_value = None
 
     with pytest.raises(DocumentNotFoundException):
-        await processing_service.process(session, 10)
+        await processing_service.process(session, JOB_ID)
 
 
 async def test_get_object_storage_exception_propagates(
@@ -75,7 +79,7 @@ async def test_get_object_storage_exception_propagates(
     storage.get_object.side_effect = StorageException()
 
     with pytest.raises(StorageException):
-        await processing_service.process(session, 10)
+        await processing_service.process(session, JOB_ID)
 
 
 async def test_parser_exception_propagates(
@@ -94,7 +98,7 @@ async def test_parser_exception_propagates(
     parser.parse.side_effect = RuntimeError("parse failed")
 
     with pytest.raises(RuntimeError, match="parse failed"):
-        await processing_service.process(session, 10)
+        await processing_service.process(session, JOB_ID)
 
 
 async def test_put_object_storage_exception_propagates(
@@ -114,7 +118,7 @@ async def test_put_object_storage_exception_propagates(
     storage.put_object.side_effect = StorageException()
 
     with pytest.raises(StorageException):
-        await processing_service.process(session, 10)
+        await processing_service.process(session, JOB_ID)
 
 
 async def test_artifact_create_exception_propagates(
@@ -135,7 +139,7 @@ async def test_artifact_create_exception_propagates(
     artifact_repo.create.side_effect = DatabaseException()
 
     with pytest.raises(DatabaseException):
-        await processing_service.process(session, 10)
+        await processing_service.process(session, JOB_ID)
 
 
 async def test_success_creates_artifact_and_completes_job(
@@ -154,17 +158,20 @@ async def test_success_creates_artifact_and_completes_job(
     storage.get_object.return_value = b"pdf content"
     parser.parse.return_value = "# Markdown"
 
-    await processing_service.process(session, 10)
+    await processing_service.process(session, JOB_ID)
 
     artifact_repo.create.assert_called_once_with(
         session,
         CreateArtifactDTO(
-            10, 1, ArtifactType.MARKDOWN, "artifacts/10/report.md"
+            JOB_ID,
+            DOCUMENT_ID,
+            ArtifactType.MARKDOWN,
+            f"artifacts/{JOB_ID}/report.md",
         ),
     )
     job_repo.update_status.assert_called_once_with(
         session,
-        10,
+        JOB_ID,
         JobStatus.COMPLETED,
         expected_status=JobStatus.STARTED,
     )
@@ -173,9 +180,9 @@ async def test_success_creates_artifact_and_completes_job(
 @pytest.mark.parametrize(
     "file_name,expected_key",
     [
-        ("report.pdf", "artifacts/10/report.md"),
-        ("my.report.pdf", "artifacts/10/my.report.md"),
-        ("report", "artifacts/10/report.md"),
+        ("report.pdf", f"artifacts/{JOB_ID}/report.md"),
+        ("my.report.pdf", f"artifacts/{JOB_ID}/my.report.md"),
+        ("report", f"artifacts/{JOB_ID}/report.md"),
     ],
 )
 async def test_artifact_key_format(
@@ -191,7 +198,7 @@ async def test_artifact_key_format(
     expected_key,
 ):
     doc = DocumentDTO(
-        id=1,
+        id=DOCUMENT_ID,
         object_key="uploads/1/doc",
         file_name=file_name,
         account_id=1,
@@ -202,7 +209,7 @@ async def test_artifact_key_format(
     storage.get_object.return_value = b"pdf content"
     parser.parse.return_value = "# Markdown"
 
-    await processing_service.process(session, 10)
+    await processing_service.process(session, JOB_ID)
 
     _, dto = artifact_repo.create.call_args.args
     assert dto.object_key == expected_key
