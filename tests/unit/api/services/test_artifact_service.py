@@ -16,7 +16,6 @@ def document_dto():
     return DocumentDTO(
         id=DOCUMENT_ID,
         object_key="uploads/1.pdf",
-        file_name="test.pdf",
         account_id=1,
         created_at=datetime(2026, 1, 1),
     )

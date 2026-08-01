@@ -28,7 +28,6 @@ class Document(Base):
         PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     object_key: Mapped[str] = mapped_column(unique=True, nullable=False)
-    file_name: Mapped[str] = mapped_column(nullable=False)
     account_id: Mapped[int] = mapped_column(
         ForeignKey("accounts.id"), nullable=False
     )

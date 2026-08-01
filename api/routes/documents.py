@@ -9,7 +9,6 @@ from api.core.dependencies import (
     DBSession,
     DocumentServiceDep,
 )
-from api.schemas.requests.documents import CreateDocumentRequest
 from api.schemas.responses.documents import (
     ArtifactResponse,
     CreateDocumentResponse,
@@ -25,14 +24,11 @@ router = APIRouter()
     "/documents", response_model=CreateDocumentResponse, status_code=201
 )
 async def create_document(
-    body: CreateDocumentRequest,
     account: CurrentAccount,
     session: DBSession,
     document_service: DocumentServiceDep,
 ) -> CreateDocumentResponse:
-    result = await document_service.create(
-        session, account_id=account.id, file_name=body.file_name
-    )
+    result = await document_service.create(session, account_id=account.id)
     structlog.contextvars.bind_contextvars(document_id=result.document.id)
     return CreateDocumentResponse(
         document_id=result.document.id,
@@ -53,7 +49,6 @@ async def get_document(
         raise DocumentNotFoundException()
     return DocumentResponse(
         id=document.id,
-        file_name=document.file_name,
         created_at=document.created_at,
     )
 

@@ -42,7 +42,6 @@ def document_dto():
     return DocumentDTO(
         id=DOCUMENT_ID,
         object_key="uploads/1/report.pdf",
-        file_name="report.pdf",
         account_id=1,
         created_at=datetime(2026, 1, 1),
     )
@@ -166,7 +165,7 @@ async def test_success_creates_artifact_and_completes_job(
             JOB_ID,
             DOCUMENT_ID,
             ArtifactType.MARKDOWN,
-            f"artifacts/{JOB_ID}/report.md",
+            f"artifacts/{JOB_ID}/markdown.md",
         ),
     )
     job_repo.update_status.assert_called_once_with(
@@ -177,14 +176,6 @@ async def test_success_creates_artifact_and_completes_job(
     )
 
 
-@pytest.mark.parametrize(
-    "file_name,expected_key",
-    [
-        ("report.pdf", f"artifacts/{JOB_ID}/report.md"),
-        ("my.report.pdf", f"artifacts/{JOB_ID}/my.report.md"),
-        ("report", f"artifacts/{JOB_ID}/report.md"),
-    ],
-)
 async def test_artifact_key_format(
     session,
     processing_service,
@@ -194,22 +185,14 @@ async def test_artifact_key_format(
     parser,
     artifact_repo,
     job_dto,
-    file_name,
-    expected_key,
+    document_dto,
 ):
-    doc = DocumentDTO(
-        id=DOCUMENT_ID,
-        object_key="uploads/1/doc",
-        file_name=file_name,
-        account_id=1,
-        created_at=datetime(2026, 1, 1),
-    )
     job_repo.get_for_processing.return_value = job_dto
-    document_repo.get_by_id.return_value = doc
+    document_repo.get_by_id.return_value = document_dto
     storage.get_object.return_value = b"pdf content"
     parser.parse.return_value = "# Markdown"
 
     await processing_service.process(session, JOB_ID)
 
     _, dto = artifact_repo.create.call_args.args
-    assert dto.object_key == expected_key
+    assert dto.object_key == f"artifacts/{JOB_ID}/markdown.md"

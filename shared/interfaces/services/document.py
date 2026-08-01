@@ -11,7 +11,7 @@ from ...dtos.document import (
 class IDocumentService(ABC):
     @abstractmethod
     async def create(
-        self, session: Any, account_id: int, file_name: str
+        self, session: Any, account_id: int
     ) -> DocumentWithUploadUrlDTO: ...
 
     @abstractmethod

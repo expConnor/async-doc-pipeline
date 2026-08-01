@@ -7,7 +7,6 @@ from uuid import UUID
 class DocumentDTO:
     id: UUID
     object_key: str
-    file_name: str
     account_id: int
     created_at: datetime
 
@@ -22,5 +21,4 @@ class DocumentWithUploadUrlDTO:
 class CreateDocumentDTO:
     id: UUID
     object_key: str
-    file_name: str
     account_id: int

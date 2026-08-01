@@ -19,14 +19,12 @@ async def test_create_success(repo, db_session, account):
         CreateDocumentDTO(
             id=document_id,
             object_key="uploads/new.pdf",
-            file_name="new.pdf",
             account_id=account.id,
         ),
     )
 
     assert dto.id is not None
     assert dto.object_key == "uploads/new.pdf"
-    assert dto.file_name == "new.pdf"
     assert dto.account_id == account.id
     assert dto.created_at is not None
 
@@ -40,7 +38,6 @@ async def test_create_duplicate_object_key_raises_database_exception(
             CreateDocumentDTO(
                 id=uuid4(),
                 object_key="uploads/test.pdf",  # same as `document` fixture
-                file_name="other.pdf",
                 account_id=account.id,
             ),
         )
@@ -55,7 +52,6 @@ async def test_create_nonexistent_account_raises_database_exception(
             CreateDocumentDTO(
                 id=uuid4(),
                 object_key="uploads/orphan.pdf",
-                file_name="orphan.pdf",
                 account_id=999999,
             ),
         )

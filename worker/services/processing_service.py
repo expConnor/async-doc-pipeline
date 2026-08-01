@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import Any
 
 import structlog
@@ -62,7 +61,7 @@ class ProcessingService(IProcessingService):
             size_chars=len(markdown),
         )
 
-        key = f"artifacts/{job_id}/{Path(document.file_name).stem}.md"
+        key = f"artifacts/{job_id}/markdown.md"
         logger.debug("processing.upload_start", artifact_key=key)
         await self._storage.put_object(key, markdown.encode())
         logger.debug("processing.upload_complete", artifact_key=key)

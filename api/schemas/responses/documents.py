@@ -13,7 +13,6 @@ class CreateDocumentResponse(BaseModel):
 
 class DocumentResponse(BaseModel):
     id: UUID
-    file_name: str
     created_at: datetime
 
 

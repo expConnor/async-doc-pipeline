@@ -23,13 +23,12 @@ class DocumentService(IDocumentService):
         self._storage = storage
 
     async def create(
-        self, session: Any, account_id: int, file_name: str
+        self, session: Any, account_id: int
     ) -> DocumentWithUploadUrlDTO:
         document_id = uuid4()
         dto = CreateDocumentDTO(
             id=document_id,
             object_key=self._raw_key(account_id, document_id),
-            file_name=file_name,
             account_id=account_id,
         )
         document = await self._repo.create(session, dto)

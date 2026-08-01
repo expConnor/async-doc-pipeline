@@ -30,7 +30,6 @@ async def document(db_session, account):
         insert(Document)
         .values(
             object_key="uploads/test.pdf",
-            file_name="test.pdf",
             account_id=account.id,
             created_at=datetime.now(),
         )

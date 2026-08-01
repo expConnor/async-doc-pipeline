@@ -16,7 +16,6 @@ MISSING_ID = UUID("018f4a2b-7c3d-4a1e-8b1e-2a9f5c6d4e99")
 DOCUMENT_DTO = DocumentDTO(
     id=DOCUMENT_ID,
     object_key="raw/1/some-uuid/report.pdf",
-    file_name="report.pdf",
     account_id=ACCOUNT.id,
     created_at=NOW,
 )
@@ -25,16 +24,7 @@ DOCUMENT_DTO = DocumentDTO(
 # POST /documents
 
 
-async def test_create_document_missing_file_name_returns_422(client):
-    response = await client.post(
-        "/documents", json={}, headers={"X-API-KEY": API_KEY}
-    )
-    assert response.status_code == 422
-    body = response.json()
-    assert "file_name" in body["errors"]
-
-
-async def test_create_document_success_returns_201(
+async def test_create_document_no_body_returns_201(
     client, mock_document_service
 ):
     mock_document_service.create.return_value = DocumentWithUploadUrlDTO(
@@ -42,16 +32,24 @@ async def test_create_document_success_returns_201(
         upload_url="https://s3.example.com/presigned",
     )
 
-    response = await client.post(
-        "/documents",
-        json={"file_name": "report.pdf"},
-        headers={"X-API-KEY": API_KEY},
-    )
+    response = await client.post("/documents", headers={"X-API-KEY": API_KEY})
 
     assert response.status_code == 201
     body = response.json()
     assert body["document_id"] == str(DOCUMENT_ID)
-    assert body["upload_url"] == "https://s3.example.com/presigned"
+
+
+async def test_get_document_response_has_no_file_name(
+    client, mock_document_service
+):
+    mock_document_service.get.return_value = DOCUMENT_DTO
+
+    response = await client.get(
+        f"/documents/{DOCUMENT_ID}", headers={"X-API-KEY": API_KEY}
+    )
+
+    assert response.status_code == 200
+    assert "file_name" not in response.json()
 
 
 # GET /documents/{document_id}
@@ -67,7 +65,6 @@ async def test_get_document_success_returns_200(client, mock_document_service):
     assert response.status_code == 200
     body = response.json()
     assert body["id"] == str(DOCUMENT_ID)
-    assert body["file_name"] == "report.pdf"
     assert "created_at" in body
 
 
