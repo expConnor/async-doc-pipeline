@@ -1,4 +1,4 @@
-.PHONY: setup seed migrate nuke test lint format help
+.PHONY: setup seed migrate nuke run test lint format help
 
 # Default so bare `make seed` is valid, not a Typer usage error.
 COUNT ?= 1
@@ -15,6 +15,9 @@ setup:       ## Bootstrap a fresh clone (or post-nuke state): deps, .env, stack,
 
 seed:        ## Bulk-create accounts. Usage: make seed COUNT=50
 	poetry run python -m cli.main account create --count $(COUNT)
+
+run:         ## Smoke test the whole system end-to-end. Usage: make run COUNT=100
+	poetry run python local/smoke_test.py $(COUNT)
 
 migrate:     ## Apply Alembic migrations only (setup already includes this)
 	poetry run python -m cli.main migrate
