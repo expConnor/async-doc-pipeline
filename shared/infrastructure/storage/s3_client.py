@@ -21,7 +21,9 @@ class S3StorageService(IStorageService):
         client_kwargs: dict = {"region_name": region}
         if endpoint_url is not None:
             client_kwargs["endpoint_url"] = endpoint_url
-            client_kwargs["config"] = Config(s3={"addressing_style": "path"})
+            client_kwargs["config"] = Config(
+                s3={"addressing_style": "path"}, signature_version="s3v4"
+            )
         if access_key is not None:
             client_kwargs["aws_access_key_id"] = access_key
             client_kwargs["aws_secret_access_key"] = secret_key
