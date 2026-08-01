@@ -71,7 +71,7 @@ worst case — close to, not "well under," a fixed 60s timeout, leaving only
 ~10s of margin at `COUNT=100`. A live `COUNT=100` run confirmed this: the
 slowest iteration finished at 47.8s. Since the worker is serial, drain time
 scales linearly with `COUNT` while a fixed timeout doesn't, so the timeout
-now scales with it: `POLL_TIMEOUT_SECONDS = 60 + count`, giving every run a
+now scales with it: `BASE_POLL_TIMEOUT_SECONDS + count`, giving every run a
 consistent ~60s of margin regardless of size.
 
 ## `local/sample.pdf`
