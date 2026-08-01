@@ -17,7 +17,7 @@ def setup_logging(*, log_level: str, log_format: str) -> None:
         processors = [
             *shared_processors,
             structlog.processors.ExceptionRenderer(),
-            structlog.processors.JSONRenderer(),
+            structlog.processors.JSONRenderer(default=str),
         ]
     else:
         processors = [
