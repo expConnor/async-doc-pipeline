@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
+from uuid import UUID
 
 from .artifact import ArtifactType
 
@@ -14,9 +15,9 @@ class JobStatus(StrEnum):
 
 @dataclass(frozen=True)
 class JobDTO:
-    id: int
+    id: UUID
     account_id: int
-    document_id: int
+    document_id: UUID
     status: JobStatus
     artifact_types: list[ArtifactType]
     attempts: int
@@ -33,5 +34,5 @@ class JobDTO:
 @dataclass(frozen=True)
 class CreateJobDTO:
     account_id: int
-    document_id: int
+    document_id: UUID
     artifact_types: list[ArtifactType]

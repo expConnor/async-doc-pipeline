@@ -1,8 +1,10 @@
+import uuid
 from datetime import datetime
 
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import ForeignKey
 from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -22,7 +24,9 @@ class Account(Base):
 
 class Document(Base):
     __tablename__ = "documents"
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     object_key: Mapped[str] = mapped_column(unique=True, nullable=False)
     file_name: Mapped[str] = mapped_column(nullable=False)
     account_id: Mapped[int] = mapped_column(
@@ -35,12 +39,14 @@ class Document(Base):
 
 class Job(Base):
     __tablename__ = "jobs"
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     account_id: Mapped[int] = mapped_column(
         ForeignKey("accounts.id"), nullable=False
     )
-    document_id: Mapped[int] = mapped_column(
-        ForeignKey("documents.id"), nullable=False
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("documents.id"), nullable=False
     )
     status: Mapped[JobStatus] = mapped_column(
         SQLEnum(JobStatus, name="job_status_enum"),
@@ -70,10 +76,14 @@ class Job(Base):
 
 class Artifact(Base):
     __tablename__ = "artifacts"
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id"), nullable=False)
-    document_id: Mapped[int] = mapped_column(
-        ForeignKey("documents.id"), nullable=False
+    id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    job_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("jobs.id"), nullable=False
+    )
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("documents.id"), nullable=False
     )
     artifact_type: Mapped[ArtifactType] = mapped_column(
         SQLEnum(ArtifactType, name="artifact_type_enum"),

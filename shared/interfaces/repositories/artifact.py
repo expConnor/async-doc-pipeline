@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any
+from uuid import UUID
 
 from ...dtos.artifact import ArtifactDTO, CreateArtifactDTO
 
@@ -12,5 +13,5 @@ class IArtifactRepository(ABC):
 
     @abstractmethod
     async def list_by_document_id(
-        self, session: Any, document_id: int, account_id: int
+        self, session: Any, document_id: UUID, account_id: int
     ) -> list[ArtifactDTO]: ...

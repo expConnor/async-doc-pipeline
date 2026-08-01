@@ -1,4 +1,5 @@
 from datetime import datetime
+from uuid import UUID
 
 from sqlalchemy import insert, select
 from sqlalchemy.exc import SQLAlchemyError
@@ -31,7 +32,7 @@ class DocumentRepository(IDocumentRepository):
             raise DatabaseException() from e
 
     async def get_by_id(
-        self, session: AsyncSession, document_id: int, account_id: int
+        self, session: AsyncSession, document_id: UUID, account_id: int
     ) -> DocumentDTO | None:
         try:
             query = select(Document).where(

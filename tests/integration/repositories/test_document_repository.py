@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 import pytest
 
 from shared.core.exceptions import DatabaseException
@@ -72,6 +74,6 @@ async def test_get_by_id_mismatched_account(
 
 
 async def test_get_by_id_nonexistent(repo, db_session, account):
-    dto = await repo.get_by_id(db_session, 999999, account.id)
+    dto = await repo.get_by_id(db_session, uuid4(), account.id)
 
     assert dto is None

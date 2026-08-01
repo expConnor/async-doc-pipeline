@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any
+from uuid import UUID
 
 from ...dtos.document import (
     CreateDocumentDTO,
@@ -16,5 +17,5 @@ class IDocumentService(ABC):
 
     @abstractmethod
     async def get(
-        self, session: Any, document_id: int, account_id: int
+        self, session: Any, document_id: UUID, account_id: int
     ) -> DocumentDTO | None: ...

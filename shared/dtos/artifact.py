@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
+from uuid import UUID
 
 
 class ArtifactType(StrEnum):
@@ -9,9 +10,9 @@ class ArtifactType(StrEnum):
 
 @dataclass(frozen=True)
 class ArtifactDTO:
-    id: int
-    job_id: int
-    document_id: int
+    id: UUID
+    job_id: UUID
+    document_id: UUID
     artifact_type: ArtifactType
     object_key: str
     created_at: datetime
@@ -25,7 +26,7 @@ class ArtifactWithUrlDTO:
 
 @dataclass(frozen=True)
 class CreateArtifactDTO:
-    job_id: int
-    document_id: int
+    job_id: UUID
+    document_id: UUID
     artifact_type: ArtifactType
     object_key: str

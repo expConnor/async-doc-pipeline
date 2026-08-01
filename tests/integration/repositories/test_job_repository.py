@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 import pytest
 
 from shared.core.exceptions import (
@@ -64,7 +66,7 @@ async def test_create_nonexistent_document_raises_database_exception(
             db_session,
             CreateJobDTO(
                 account_id=account.id,
-                document_id=999999,
+                document_id=uuid4(),
                 artifact_types=[ArtifactType.MARKDOWN],
             ),
         )
@@ -85,7 +87,7 @@ async def test_get_by_id_mismatched_account(repo, db_session, account_b, job):
 
 
 async def test_get_by_id_nonexistent(repo, db_session, account):
-    dto = await repo.get_by_id(db_session, 999999, account.id)
+    dto = await repo.get_by_id(db_session, uuid4(), account.id)
 
     assert dto is None
 
@@ -101,7 +103,7 @@ async def test_get_for_processing_ignores_account(
 
 
 async def test_get_for_processing_nonexistent(repo, db_session):
-    dto = await repo.get_for_processing(db_session, 999999)
+    dto = await repo.get_for_processing(db_session, uuid4())
 
     assert dto is None
 
@@ -194,7 +196,7 @@ async def test_update_status_nonexistent_job_raises_conflict(repo, db_session):
     with pytest.raises(JobStateConflictException):
         await repo.update_status(
             db_session,
-            999999,
+            uuid4(),
             JobStatus.STARTED,
             expected_status=JobStatus.QUEUED,
         )

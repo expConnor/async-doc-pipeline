@@ -1,4 +1,5 @@
 from datetime import datetime
+from uuid import UUID
 
 from sqlalchemy import insert, select, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -46,7 +47,7 @@ class JobRepository(IJobRepository):
             raise DatabaseException() from e
 
     async def get_by_id(
-        self, session: AsyncSession, job_id: int, account_id: int
+        self, session: AsyncSession, job_id: UUID, account_id: int
     ) -> JobDTO | None:
         try:
             query = select(Job).where(
@@ -62,7 +63,7 @@ class JobRepository(IJobRepository):
     async def update_status(
         self,
         session: AsyncSession,
-        job_id: int,
+        job_id: UUID,
         status: JobStatus,
         *,
         expected_status: JobStatus,
@@ -95,7 +96,7 @@ class JobRepository(IJobRepository):
             raise DatabaseException() from e
 
     async def get_for_processing(
-        self, session: AsyncSession, job_id: int
+        self, session: AsyncSession, job_id: UUID
     ) -> JobDTO | None:
         try:
             query = select(Job).where(Job.id == job_id)

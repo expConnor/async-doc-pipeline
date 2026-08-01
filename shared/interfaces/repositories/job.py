@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any
+from uuid import UUID
 
 from ...dtos.job import CreateJobDTO, JobDTO, JobStatus
 
@@ -10,14 +11,14 @@ class IJobRepository(ABC):
 
     @abstractmethod
     async def get_by_id(
-        self, session: Any, job_id: int, account_id: int
+        self, session: Any, job_id: UUID, account_id: int
     ) -> JobDTO | None: ...
 
     @abstractmethod
     async def update_status(
         self,
         session: Any,
-        job_id: int,
+        job_id: UUID,
         status: JobStatus,
         *,
         expected_status: JobStatus,
@@ -26,5 +27,5 @@ class IJobRepository(ABC):
 
     @abstractmethod
     async def get_for_processing(
-        self, session: Any, job_id: int
+        self, session: Any, job_id: UUID
     ) -> JobDTO | None: ...

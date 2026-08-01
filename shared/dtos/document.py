@@ -1,10 +1,11 @@
 from dataclasses import dataclass
 from datetime import datetime
+from uuid import UUID
 
 
 @dataclass(frozen=True)
 class DocumentDTO:
-    id: int
+    id: UUID
     object_key: str
     file_name: str
     account_id: int

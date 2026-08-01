@@ -1,4 +1,5 @@
 from datetime import datetime
+from uuid import UUID
 
 from sqlalchemy import insert, select
 from sqlalchemy.exc import SQLAlchemyError
@@ -32,7 +33,7 @@ class ArtifactRepository(IArtifactRepository):
             raise DatabaseException() from e
 
     async def list_by_document_id(
-        self, session: AsyncSession, document_id: int, account_id: int
+        self, session: AsyncSession, document_id: UUID, account_id: int
     ) -> list[ArtifactDTO]:
         try:
             query = (
