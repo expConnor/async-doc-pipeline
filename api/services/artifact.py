@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from uuid import UUID
 
 from shared.core.exceptions import DocumentNotFoundException
 from shared.dtos.artifact import ArtifactWithUrlDTO
@@ -22,7 +23,7 @@ class ArtifactService(IArtifactService):
         self._document_repo = document_repo
 
     async def list_for_document(
-        self, session: Any, document_id: int, account_id: int
+        self, session: Any, document_id: UUID, account_id: int
     ) -> list[ArtifactWithUrlDTO]:
         document = await self._document_repo.get_by_id(
             session, document_id, account_id

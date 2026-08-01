@@ -1,4 +1,5 @@
 from datetime import datetime
+from uuid import uuid4
 
 import pytest
 
@@ -9,7 +10,7 @@ from shared.dtos.document import CreateDocumentDTO, DocumentDTO
 @pytest.fixture
 def document_dto():
     return DocumentDTO(
-        id=1,
+        id=uuid4(),
         object_key="uploads/1.pdf",
         file_name="test.pdf",
         account_id=1,

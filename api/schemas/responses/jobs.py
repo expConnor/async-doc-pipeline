@@ -1,4 +1,5 @@
 from datetime import datetime
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -7,8 +8,8 @@ from shared.dtos.job import JobStatus
 
 
 class JobResponse(BaseModel):
-    id: int
-    document_id: int
+    id: UUID
+    document_id: UUID
     status: JobStatus
     artifact_types: list[ArtifactType]
     attempts: int

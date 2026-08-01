@@ -1,4 +1,5 @@
 from datetime import datetime
+from uuid import uuid4
 
 import pytest
 
@@ -17,7 +18,7 @@ from shared.dtos.job import CreateJobDTO, JobDTO, JobStatus
 @pytest.fixture
 def document_dto():
     return DocumentDTO(
-        id=1,
+        id=uuid4(),
         object_key="uploads/1.pdf",
         file_name="test.pdf",
         account_id=1,
@@ -28,9 +29,9 @@ def document_dto():
 @pytest.fixture
 def job_dto():
     return JobDTO(
-        id=10,
+        id=uuid4(),
         account_id=1,
-        document_id=1,
+        document_id=uuid4(),
         status=JobStatus.QUEUED,
         artifact_types=[ArtifactType.MARKDOWN],
         attempts=0,
@@ -49,7 +50,7 @@ def job_dto():
 def create_dto():
     return CreateJobDTO(
         account_id=1,
-        document_id=1,
+        document_id=uuid4(),
         artifact_types=[ArtifactType.MARKDOWN],
     )
 
@@ -140,8 +141,8 @@ async def test_create_success_when_depth_below_threshold(
     messaging.enqueue.assert_called_once_with(
         "jobs",
         {
-            "job_id": job_dto.id,
-            "document_id": job_dto.document_id,
+            "job_id": str(job_dto.id),
+            "document_id": str(job_dto.document_id),
             "artifact_types": [ArtifactType.MARKDOWN.value],
         },
     )

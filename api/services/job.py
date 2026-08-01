@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from uuid import UUID
 
 import structlog
 
@@ -37,7 +38,7 @@ class JobService(IJobService):
         self._backpressure_threshold = backpressure_threshold
 
     async def get(
-        self, session: Any, job_id: int, account_id: int
+        self, session: Any, job_id: UUID, account_id: int
     ) -> JobDTO | None:
         return await self._repo.get_by_id(session, job_id, account_id)
 
@@ -59,8 +60,8 @@ class JobService(IJobService):
         await self._messaging.enqueue(
             self._queue,
             {
-                "job_id": job.id,
-                "document_id": job.document_id,
+                "job_id": str(job.id),
+                "document_id": str(job.document_id),
                 "artifact_types": [t.value for t in job.artifact_types],
             },
         )

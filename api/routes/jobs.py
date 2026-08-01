@@ -1,3 +1,5 @@
+from uuid import UUID
+
 import structlog.contextvars
 from fastapi import APIRouter
 
@@ -34,7 +36,7 @@ def _to_response(job: JobDTO) -> JobResponse:
     status_code=201,
 )
 async def process_document(
-    document_id: int,
+    document_id: UUID,
     body: ProcessDocumentRequest,
     account: CurrentAccount,
     session: DBSession,
@@ -53,7 +55,7 @@ async def process_document(
 
 @router.get("/jobs/{job_id}", response_model=JobResponse)
 async def get_job(
-    job_id: int,
+    job_id: UUID,
     account: CurrentAccount,
     session: DBSession,
     job_service: JobServiceDep,

@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from uuid import UUID
 
 from shared.core.exceptions import (
     ActiveJobExistsException,
@@ -12,10 +13,14 @@ from tests.unit.api.routes.conftest import ACCOUNT, API_KEY
 
 NOW = datetime(2024, 1, 1, tzinfo=UTC)
 
+DOCUMENT_ID = UUID("018f4a2b-7c3d-4a1e-8b1e-2a9f5c6d4e01")
+JOB_ID = UUID("018f4a2b-7c3d-4a1e-8b1e-2a9f5c6d4e03")
+MISSING_ID = UUID("018f4a2b-7c3d-4a1e-8b1e-2a9f5c6d4e99")
+
 JOB_DTO = JobDTO(
-    id=99,
+    id=JOB_ID,
     account_id=ACCOUNT.id,
-    document_id=42,
+    document_id=DOCUMENT_ID,
     status=JobStatus.QUEUED,
     artifact_types=[ArtifactType.MARKDOWN],
     attempts=0,
@@ -35,7 +40,7 @@ JOB_DTO = JobDTO(
 
 async def test_process_document_invalid_artifact_type_returns_422(client):
     response = await client.post(
-        "/documents/42/process",
+        f"/documents/{DOCUMENT_ID}/process",
         json={"artifact_types": ["invalid_type"]},
         headers={"X-API-KEY": API_KEY},
     )
@@ -48,7 +53,7 @@ async def test_process_document_not_found_returns_404(client, mock_job_service):
     mock_job_service.create.side_effect = DocumentNotFoundException()
 
     response = await client.post(
-        "/documents/99/process",
+        f"/documents/{MISSING_ID}/process",
         json={},
         headers={"X-API-KEY": API_KEY},
     )
@@ -63,7 +68,7 @@ async def test_process_document_not_uploaded_returns_409(
     mock_job_service.create.side_effect = DocumentNotUploadedException()
 
     response = await client.post(
-        "/documents/42/process",
+        f"/documents/{DOCUMENT_ID}/process",
         json={},
         headers={"X-API-KEY": API_KEY},
     )
@@ -78,7 +83,7 @@ async def test_process_document_backpressure_returns_429(
     mock_job_service.create.side_effect = BackpressureException()
 
     response = await client.post(
-        "/documents/42/process",
+        f"/documents/{DOCUMENT_ID}/process",
         json={},
         headers={"X-API-KEY": API_KEY},
     )
@@ -93,7 +98,7 @@ async def test_process_document_active_job_returns_409(
     mock_job_service.create.side_effect = ActiveJobExistsException()
 
     response = await client.post(
-        "/documents/42/process",
+        f"/documents/{DOCUMENT_ID}/process",
         json={},
         headers={"X-API-KEY": API_KEY},
     )
@@ -106,15 +111,15 @@ async def test_process_document_success_returns_201(client, mock_job_service):
     mock_job_service.create.return_value = JOB_DTO
 
     response = await client.post(
-        "/documents/42/process",
+        f"/documents/{DOCUMENT_ID}/process",
         json={"artifact_types": ["markdown"]},
         headers={"X-API-KEY": API_KEY},
     )
 
     assert response.status_code == 201
     body = response.json()
-    assert body["id"] == 99
-    assert body["document_id"] == 42
+    assert body["id"] == str(JOB_ID)
+    assert body["document_id"] == str(DOCUMENT_ID)
     assert body["status"] == "queued"
     assert body["artifact_types"] == ["markdown"]
 
@@ -125,7 +130,9 @@ async def test_process_document_success_returns_201(client, mock_job_service):
 async def test_get_job_not_found_returns_404(client, mock_job_service):
     mock_job_service.get.return_value = None
 
-    response = await client.get("/jobs/999", headers={"X-API-KEY": API_KEY})
+    response = await client.get(
+        f"/jobs/{MISSING_ID}", headers={"X-API-KEY": API_KEY}
+    )
 
     assert response.status_code == 404
     assert response.json()["type"] == "JobNotFoundException"
@@ -136,12 +143,14 @@ async def test_get_job_success_returns_200_with_all_fields(
 ):
     mock_job_service.get.return_value = JOB_DTO
 
-    response = await client.get("/jobs/99", headers={"X-API-KEY": API_KEY})
+    response = await client.get(
+        f"/jobs/{JOB_ID}", headers={"X-API-KEY": API_KEY}
+    )
 
     assert response.status_code == 200
     body = response.json()
-    assert body["id"] == 99
-    assert body["document_id"] == 42
+    assert body["id"] == str(JOB_ID)
+    assert body["document_id"] == str(DOCUMENT_ID)
     assert body["status"] == "queued"
     assert body["artifact_types"] == ["markdown"]
     assert body["attempts"] == 0

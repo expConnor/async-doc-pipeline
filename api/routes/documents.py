@@ -1,4 +1,4 @@
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import structlog.contextvars
 from fastapi import APIRouter
@@ -47,7 +47,7 @@ async def create_document(
 
 @router.get("/documents/{document_id}", response_model=DocumentResponse)
 async def get_document(
-    document_id: int,
+    document_id: UUID,
     account: CurrentAccount,
     session: DBSession,
     document_service: DocumentServiceDep,
@@ -67,7 +67,7 @@ async def get_document(
     "/documents/{document_id}/artifacts", response_model=ListArtifactsResponse
 )
 async def list_artifacts(
-    document_id: int,
+    document_id: UUID,
     account: CurrentAccount,
     session: DBSession,
     artifact_service: ArtifactServiceDep,

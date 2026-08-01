@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from uuid import UUID
 
 from shared.core.exceptions import DocumentNotFoundException
 from shared.dtos.artifact import ArtifactDTO, ArtifactType, ArtifactWithUrlDTO
@@ -7,8 +8,13 @@ from tests.unit.api.routes.conftest import ACCOUNT, API_KEY
 
 NOW = datetime(2024, 1, 1, tzinfo=UTC)
 
+DOCUMENT_ID = UUID("018f4a2b-7c3d-4a1e-8b1e-2a9f5c6d4e01")
+ARTIFACT_ID = UUID("018f4a2b-7c3d-4a1e-8b1e-2a9f5c6d4e02")
+JOB_ID = UUID("018f4a2b-7c3d-4a1e-8b1e-2a9f5c6d4e03")
+MISSING_ID = UUID("018f4a2b-7c3d-4a1e-8b1e-2a9f5c6d4e99")
+
 DOCUMENT_DTO = DocumentDTO(
-    id=42,
+    id=DOCUMENT_ID,
     object_key="raw/1/some-uuid/report.pdf",
     file_name="report.pdf",
     account_id=ACCOUNT.id,
@@ -44,7 +50,7 @@ async def test_create_document_success_returns_201(
 
     assert response.status_code == 201
     body = response.json()
-    assert body["document_id"] == 42
+    assert body["document_id"] == str(DOCUMENT_ID)
     assert body["upload_url"] == "https://s3.example.com/presigned"
 
 
@@ -54,11 +60,13 @@ async def test_create_document_success_returns_201(
 async def test_get_document_success_returns_200(client, mock_document_service):
     mock_document_service.get.return_value = DOCUMENT_DTO
 
-    response = await client.get("/documents/42", headers={"X-API-KEY": API_KEY})
+    response = await client.get(
+        f"/documents/{DOCUMENT_ID}", headers={"X-API-KEY": API_KEY}
+    )
 
     assert response.status_code == 200
     body = response.json()
-    assert body["id"] == 42
+    assert body["id"] == str(DOCUMENT_ID)
     assert body["file_name"] == "report.pdf"
     assert "created_at" in body
 
@@ -68,7 +76,9 @@ async def test_get_document_not_found_returns_404(
 ):
     mock_document_service.get.return_value = None
 
-    response = await client.get("/documents/99", headers={"X-API-KEY": API_KEY})
+    response = await client.get(
+        f"/documents/{MISSING_ID}", headers={"X-API-KEY": API_KEY}
+    )
 
     assert response.status_code == 404
     body = response.json()
@@ -79,10 +89,17 @@ async def test_get_document_not_found_returns_404(
     assert body["errors"] == {}
 
 
+async def test_get_document_malformed_uuid_returns_422(client):
+    response = await client.get(
+        "/documents/not-a-uuid", headers={"X-API-KEY": API_KEY}
+    )
+    assert response.status_code == 422
+
+
 ARTIFACT_DTO = ArtifactDTO(
-    id=7,
-    job_id=10,
-    document_id=42,
+    id=ARTIFACT_ID,
+    job_id=JOB_ID,
+    document_id=DOCUMENT_ID,
     artifact_type=ArtifactType.MARKDOWN,
     object_key="processed/1/42/output.md",
     created_at=NOW,
@@ -100,7 +117,7 @@ async def test_list_artifacts_document_not_found_returns_404(
     )
 
     response = await client.get(
-        "/documents/99/artifacts", headers={"X-API-KEY": API_KEY}
+        f"/documents/{MISSING_ID}/artifacts", headers={"X-API-KEY": API_KEY}
     )
 
     assert response.status_code == 404
@@ -113,7 +130,7 @@ async def test_list_artifacts_empty_returns_200_with_empty_list(
     mock_artifact_service.list_for_document.return_value = []
 
     response = await client.get(
-        "/documents/42/artifacts", headers={"X-API-KEY": API_KEY}
+        f"/documents/{DOCUMENT_ID}/artifacts", headers={"X-API-KEY": API_KEY}
     )
 
     assert response.status_code == 200
@@ -131,13 +148,13 @@ async def test_list_artifacts_success_returns_200_with_artifacts(
     ]
 
     response = await client.get(
-        "/documents/42/artifacts", headers={"X-API-KEY": API_KEY}
+        f"/documents/{DOCUMENT_ID}/artifacts", headers={"X-API-KEY": API_KEY}
     )
 
     assert response.status_code == 200
     body = response.json()
     assert len(body["artifacts"]) == 1
     artifact = body["artifacts"][0]
-    assert artifact["id"] == 7
+    assert artifact["id"] == str(ARTIFACT_ID)
     assert artifact["artifact_type"] == "markdown"
     assert artifact["download_url"] == "https://s3.example.com/download"

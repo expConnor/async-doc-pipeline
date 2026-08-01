@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from uuid import UUID
 
 from shared.dtos.document import (
     CreateDocumentDTO,
@@ -33,6 +34,6 @@ class DocumentService(IDocumentService):
         )
 
     async def get(
-        self, session: Any, document_id: int, account_id: int
+        self, session: Any, document_id: UUID, account_id: int
     ) -> DocumentDTO | None:
         return await self._repo.get_by_id(session, document_id, account_id)
