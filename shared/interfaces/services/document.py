@@ -3,7 +3,6 @@ from typing import Any
 from uuid import UUID
 
 from ...dtos.document import (
-    CreateDocumentDTO,
     DocumentDTO,
     DocumentWithUploadUrlDTO,
 )
@@ -12,7 +11,7 @@ from ...dtos.document import (
 class IDocumentService(ABC):
     @abstractmethod
     async def create(
-        self, session: Any, dto: CreateDocumentDTO
+        self, session: Any, account_id: int, file_name: str
     ) -> DocumentWithUploadUrlDTO: ...
 
     @abstractmethod

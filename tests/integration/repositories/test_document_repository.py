@@ -13,9 +13,11 @@ def repo():
 
 
 async def test_create_success(repo, db_session, account):
+    document_id = uuid4()
     dto = await repo.create(
         db_session,
         CreateDocumentDTO(
+            id=document_id,
             object_key="uploads/new.pdf",
             file_name="new.pdf",
             account_id=account.id,
@@ -36,6 +38,7 @@ async def test_create_duplicate_object_key_raises_database_exception(
         await repo.create(
             db_session,
             CreateDocumentDTO(
+                id=uuid4(),
                 object_key="uploads/test.pdf",  # same as `document` fixture
                 file_name="other.pdf",
                 account_id=account.id,
@@ -50,6 +53,7 @@ async def test_create_nonexistent_account_raises_database_exception(
         await repo.create(
             db_session,
             CreateDocumentDTO(
+                id=uuid4(),
                 object_key="uploads/orphan.pdf",
                 file_name="orphan.pdf",
                 account_id=999999,

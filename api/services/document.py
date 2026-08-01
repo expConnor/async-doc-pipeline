@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from shared.dtos.document import (
     CreateDocumentDTO,
@@ -23,8 +23,15 @@ class DocumentService(IDocumentService):
         self._storage = storage
 
     async def create(
-        self, session: Any, dto: CreateDocumentDTO
+        self, session: Any, account_id: int, file_name: str
     ) -> DocumentWithUploadUrlDTO:
+        document_id = uuid4()
+        dto = CreateDocumentDTO(
+            id=document_id,
+            object_key=self._raw_key(account_id, document_id),
+            file_name=file_name,
+            account_id=account_id,
+        )
         document = await self._repo.create(session, dto)
         upload_url = await self._storage.generate_upload_url(
             document.object_key
@@ -37,3 +44,7 @@ class DocumentService(IDocumentService):
         self, session: Any, document_id: UUID, account_id: int
     ) -> DocumentDTO | None:
         return await self._repo.get_by_id(session, document_id, account_id)
+
+    @staticmethod
+    def _raw_key(account_id: int, document_id: UUID) -> str:
+        return f"raw/{account_id}/{document_id}.pdf"

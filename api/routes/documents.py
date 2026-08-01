@@ -1,4 +1,4 @@
-from uuid import UUID, uuid4
+from uuid import UUID
 
 import structlog.contextvars
 from fastapi import APIRouter
@@ -17,7 +17,6 @@ from api.schemas.responses.documents import (
     ListArtifactsResponse,
 )
 from shared.core.exceptions import DocumentNotFoundException
-from shared.dtos.document import CreateDocumentDTO
 
 router = APIRouter()
 
@@ -31,13 +30,9 @@ async def create_document(
     session: DBSession,
     document_service: DocumentServiceDep,
 ) -> CreateDocumentResponse:
-    object_key = f"raw/{account.id}/{uuid4()}/{body.file_name}"
-    dto = CreateDocumentDTO(
-        object_key=object_key,
-        file_name=body.file_name,
-        account_id=account.id,
+    result = await document_service.create(
+        session, account_id=account.id, file_name=body.file_name
     )
-    result = await document_service.create(session, dto)
     structlog.contextvars.bind_contextvars(document_id=result.document.id)
     return CreateDocumentResponse(
         document_id=result.document.id,

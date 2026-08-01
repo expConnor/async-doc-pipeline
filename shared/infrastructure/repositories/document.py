@@ -19,6 +19,7 @@ class DocumentRepository(IDocumentRepository):
             query = (
                 insert(Document)
                 .values(
+                    id=dto.id,
                     object_key=dto.object_key,
                     file_name=dto.file_name,
                     account_id=dto.account_id,
