@@ -49,6 +49,7 @@ async def test_create_same_document_and_type_upserts(
 
     assert result.id == artifact.id
     assert result.object_key == "artifacts/1/test.md"
+    assert result.created_at == artifact.created_at
 
     rows = await repo.list_by_document_id(db_session, document.id, account.id)
     assert len(rows) == 1
@@ -86,6 +87,7 @@ async def test_create_upsert_refreshes_job_id(
 
     assert result.id == artifact.id
     assert result.job_id == second_job.id
+    assert result.created_at == artifact.created_at
 
 
 async def test_list_by_document_id_returns_artifacts(

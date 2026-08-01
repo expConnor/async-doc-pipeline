@@ -31,10 +31,10 @@ class ArtifactRepository(IArtifactRepository):
                     "object_key": base_stmt.excluded.object_key,
                 },
             ).returning(Artifact)
-            result = await session.execute(stmt)
+            result = await session.execute(
+                stmt, execution_options={"populate_existing": True}
+            )
             artifact = result.scalar_one()
-            # Refresh to get database values, not cached session values
-            await session.refresh(artifact)
             return self._to_dto(artifact)
         except SQLAlchemyError as e:
             raise DatabaseException() from e
