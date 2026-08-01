@@ -58,4 +58,6 @@ cache/
 .aws/
 
 CLAUDE.md
-local/
+local/*
+!local/sample.pdf
+!local/smoke_test.py
