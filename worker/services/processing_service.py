@@ -61,7 +61,7 @@ class ProcessingService(IProcessingService):
             size_chars=len(markdown),
         )
 
-        key = f"artifacts/{job_id}/markdown.md"
+        key = f"artifacts/{job.account_id}/{document.id}.md"
         logger.debug("processing.upload_start", artifact_key=key)
         await self._storage.put_object(key, markdown.encode())
         logger.debug("processing.upload_complete", artifact_key=key)

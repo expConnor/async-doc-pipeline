@@ -165,7 +165,7 @@ async def test_success_creates_artifact_and_completes_job(
             JOB_ID,
             DOCUMENT_ID,
             ArtifactType.MARKDOWN,
-            f"artifacts/{JOB_ID}/markdown.md",
+            f"artifacts/{job_dto.account_id}/{DOCUMENT_ID}.md",
         ),
     )
     job_repo.update_status.assert_called_once_with(
@@ -195,4 +195,76 @@ async def test_artifact_key_format(
     await processing_service.process(session, JOB_ID)
 
     _, dto = artifact_repo.create.call_args.args
-    assert dto.object_key == f"artifacts/{JOB_ID}/markdown.md"
+    assert dto.object_key == f"artifacts/{job_dto.account_id}/{DOCUMENT_ID}.md"
+
+
+async def test_artifact_key_derives_from_account_and_document(
+    session,
+    processing_service,
+    job_repo,
+    document_repo,
+    storage,
+    parser,
+    job_dto,
+    document_dto,
+):
+    job_repo.get_for_processing.return_value = job_dto
+    document_repo.get_by_id.return_value = document_dto
+    storage.get_object.return_value = b"%PDF-1.4"
+    parser.parse.return_value = "# Heading"
+
+    await processing_service.process(session, job_dto.id)
+
+    key = storage.put_object.call_args.args[0]
+    assert key == f"artifacts/{job_dto.account_id}/{document_dto.id}.md"
+
+
+async def test_artifact_key_omits_job_id(
+    session,
+    processing_service,
+    job_repo,
+    document_repo,
+    storage,
+    parser,
+    job_dto,
+    document_dto,
+):
+    job_repo.get_for_processing.return_value = job_dto
+    document_repo.get_by_id.return_value = document_dto
+    storage.get_object.return_value = b"%PDF-1.4"
+    parser.parse.return_value = "# Heading"
+
+    await processing_service.process(session, job_dto.id)
+
+    assert str(job_dto.id) not in storage.put_object.call_args.args[0]
+
+
+async def test_reprocessing_targets_the_same_key(
+    session,
+    processing_service,
+    job_repo,
+    document_repo,
+    storage,
+    parser,
+    job_dto,
+    document_dto,
+):
+    """Two runs of the same document must address one object, so the
+    repository upsert lands on the row it is meant to replace."""
+    import dataclasses
+    from uuid import uuid4
+
+    document_repo.get_by_id.return_value = document_dto
+    storage.get_object.return_value = b"%PDF-1.4"
+    parser.parse.return_value = "# Heading"
+
+    job_repo.get_for_processing.return_value = job_dto
+    await processing_service.process(session, job_dto.id)
+    first_key = storage.put_object.call_args.args[0]
+
+    second_job = dataclasses.replace(job_dto, id=uuid4())
+    job_repo.get_for_processing.return_value = second_job
+    await processing_service.process(session, second_job.id)
+    second_key = storage.put_object.call_args.args[0]
+
+    assert first_key == second_key
