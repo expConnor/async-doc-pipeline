@@ -25,6 +25,12 @@ services:
       context: .
       dockerfile: docker/worker.Dockerfile
     command: python -m worker.main
+    # PyMuPDF4LLM parses with ~6 native threads, so one uncapped worker
+    # saturates the whole machine and extra workers just split the same CPU
+    # (3 workers measured *slower* than 1). Capping each worker to one core
+    # makes it a fixed unit of capacity, so throughput scales with replicas —
+    # which is what ECS does in prod via per-task vCPU.
+    cpus: 1
     environment:
       POSTGRES_HOST: postgres
       RABBITMQ_HOST: rabbitmq
