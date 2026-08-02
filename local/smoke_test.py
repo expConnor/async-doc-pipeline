@@ -2,6 +2,7 @@
 
 import asyncio
 import csv
+import itertools
 import socket
 import sys
 import time
@@ -49,6 +50,8 @@ async def _run_one(
     index: int,
     pdf_bytes: bytes,
     poll_timeout_seconds: float,
+    queued_counter: itertools.count,
+    count: int,
 ) -> bool:
     start = time.monotonic()
     try:
@@ -66,6 +69,9 @@ async def _run_one(
         )
         process_response.raise_for_status()
         job_id = process_response.json()["id"]
+
+        if next(queued_counter) == count:
+            print(f"all {count} documents queued successfully")
 
         deadline = time.monotonic() + poll_timeout_seconds
         while time.monotonic() < deadline:
@@ -91,6 +97,7 @@ async def _run_one(
 
 
 async def _main(count: int) -> int:
+    start = time.monotonic()
     api_key = _load_api_key()
     pdf_bytes = SAMPLE_PDF.read_bytes()
     # The worker is deliberately serial (prefetch_count=1), so drain time
@@ -105,6 +112,7 @@ async def _main(count: int) -> int:
         ) as api_client,
         httpx.AsyncClient(timeout=30.0) as upload_client,
     ):
+        queued_counter = itertools.count(1)
         results = await asyncio.gather(
             *(
                 _run_one(
@@ -113,6 +121,8 @@ async def _main(count: int) -> int:
                     i,
                     pdf_bytes,
                     poll_timeout_seconds,
+                    queued_counter,
+                    count,
                 )
                 for i in range(1, count + 1)
             ),
@@ -124,7 +134,8 @@ async def _main(count: int) -> int:
             print(f"[{i}] FAILED: {result}")
 
     passed = sum(1 for r in results if r is True)
-    print(f"{passed}/{count} passed")
+    total_elapsed = time.monotonic() - start
+    print(f"{passed}/{count} passed ({total_elapsed:.1f}s total)")
     return 0 if passed == count else 1
 
 
