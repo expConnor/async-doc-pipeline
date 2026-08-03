@@ -26,9 +26,18 @@ from types import ModuleType
 from pipeline.client import PipelineClient
 
 
+# This @dataclass omits `frozen=True` (unlike Document in client.py) because
+# a Report is built up incrementally — `record()` appends to it and
+# `summary` gets set — rather than created once with all its data already
+# known.
 @dataclass
 class Report:
     scenario: str
+    # `field(default_factory=list)` is how a dataclass gets a mutable default
+    # value safely. Writing `events: list = []` directly would make every
+    # Report instance share the *same* list object (a well-known Python
+    # gotcha), so dataclasses require a zero-argument function that builds a
+    # fresh list each time a Report is constructed instead.
     events: list[tuple[datetime, str, str]] = field(default_factory=list)
     summary: str = ""
 
@@ -47,6 +56,13 @@ class Report:
         return "\n".join(lines)
 
 
+# In Python, an imported module (like `pipeline.docker` or `pipeline.jobs`)
+# is itself an object you can pass around, just like any other value —
+# `ModuleType` is its type. Bundling the three `pipeline/` modules plus a
+# `PipelineClient` into one ScenarioContext means every scenario's `run(ctx)`
+# function only has to import `ScenarioContext` itself, then reach everything
+# else through `ctx.docker.kill(...)`, `ctx.jobs.watch(...)`, etc. — see
+# chaos.py, which is the only place that actually constructs one of these.
 @dataclass
 class ScenarioContext:
     client: PipelineClient

@@ -39,6 +39,11 @@ async def run(ctx: ScenarioContext) -> Report:
                 f"status={snap.status} attempts={snap.attempts}",
             )
 
+        # `x if cond else y` is a "conditional expression" (Python's inline
+        # if/else) — here, "use the last snapshot watch() saw, but fall back
+        # to the STARTED snapshot if watch() somehow observed nothing at
+        # all". `history[-1]` is Python's negative-indexing: -1 always means
+        # "the last element of the list".
         final = history[-1] if history else started
         depth = ctx.docker.queue_depth()
         report.record("final_queue_depth", str(depth))
@@ -55,6 +60,14 @@ async def run(ctx: ScenarioContext) -> Report:
     return report
 
 
+# With 3 workers running, only one of them actually claims this job (see the
+# compare-and-swap in shared/infrastructure/repositories/job.py) — so before
+# calling docker.kill(), this scenario has to figure out *which* container
+# that was, by grepping `docker compose logs` for a line mentioning this
+# job_id. `docker compose logs` prefixes each line with the short service
+# name (e.g. "worker-2"), while `docker.worker_containers()` returns full
+# container names (e.g. "doc-pipeline-worker-2") — hence matching with
+# `.endswith()` rather than `==`.
 def _find_claiming_worker(ctx: ScenarioContext, job_id: UUID) -> str:
     containers = ctx.docker.worker_containers()
     log_text = ctx.docker.logs("worker", since="2m")

@@ -26,12 +26,20 @@ async def _main(name: str | None) -> int:
         return 0 if name is None else 1
 
     async with PipelineClient() as client:
+        # This is the one place a ScenarioContext actually gets built — every
+        # scenario module receives the same live PipelineClient plus the
+        # three pipeline/ modules imported at the top of this file (renamed
+        # with `as ..._module` only to avoid clashing with the `docker` and
+        # `jobs` parameter names used elsewhere).
         ctx = ScenarioContext(
             client=client,
             fixtures=fixtures_module,
             docker=docker_module,
             jobs=jobs_module,
         )
+        # `SCENARIOS[name]` looks up the chosen scenario's `run` function by
+        # its string name (e.g. "worker-kill") in the dict built in
+        # scenarios/__init__.py, then calls it immediately with `(ctx)`.
         report = await SCENARIOS[name](ctx)
 
     print(report.render())

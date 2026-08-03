@@ -33,6 +33,13 @@ class JobSnapshot:
     error_message: str | None
 
 
+# `docker compose exec -T postgres sh -c <script>` runs `<script>` as a shell
+# command *inside* the already-running postgres container — `-T` disables the
+# interactive terminal features exec would otherwise try to allocate, which
+# matters because this call is scripted, not typed by a human. `psql` is
+# Postgres's own command-line client; `-t -A -F'|'` tell it to print results
+# without column headers or padding, pipe-delimited, so `_parse_row` below can
+# split each line on "|" instead of parsing a formatted table.
 def _run_query(sql: str) -> str:
     # sh -c inside the container expands $POSTGRES_USER/$POSTGRES_DB from the
     # env_file docker-compose already gives the postgres service, so this
@@ -73,6 +80,17 @@ def _parse_row(line: str) -> JobSnapshot:
 
 
 def snapshot(job_id: UUID) -> JobSnapshot:
+    # Building SQL by pasting a value straight into the string (an f-string)
+    # is normally exactly what to avoid — it's how SQL injection
+    # vulnerabilities happen when the value comes from a user. It's safe here
+    # only because `job_id` is typed as `UUID`, not `str`: Python already
+    # rejected anything that isn't a valid UUID before this function was
+    # ever called, so there's no way for someone to sneak extra SQL in
+    # through this parameter. The application's own database code (in
+    # shared/infrastructure/repositories/) uses SQLAlchemy's query builder
+    # instead, which parameterizes values automatically — this raw-SQL
+    # shortcut is only reasonable for this kind of small, trusted diagnostic
+    # script.
     sql = (
         "SELECT id, status, attempts, max_attempts, queued_at, started_at, "
         "completed_at, failed_at, error_message FROM jobs WHERE id = "
@@ -84,6 +102,13 @@ def snapshot(job_id: UUID) -> JobSnapshot:
     return _parse_row(out)
 
 
+# This is a "polling loop": rather than being notified the instant the job's
+# status changes, it repeatedly asks the database "what's the status now?"
+# with a `time.sleep(interval)` pause between checks, until either the answer
+# it wants shows up or `timeout` seconds have passed. `time.monotonic()`
+# returns a clock that only ever moves forward (unlike wall-clock time, it's
+# unaffected by the system clock being adjusted), which is why it's used here
+# to measure "how much time has elapsed" reliably.
 def wait_for_status(
     job_id: UUID, status: str, timeout: float, interval: float = 1.0
 ) -> JobSnapshot:
