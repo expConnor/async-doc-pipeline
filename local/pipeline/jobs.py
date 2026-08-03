@@ -52,7 +52,7 @@ def _parse_row(line: str) -> JobSnapshot:
 
     return JobSnapshot(
         id=UUID(fields[0]),
-        status=fields[1],
+        status=fields[1].lower(),
         attempts=int(fields[2]),
         max_attempts=int(fields[3]),
         queued_at=_dt(fields[4]),

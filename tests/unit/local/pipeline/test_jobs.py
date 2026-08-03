@@ -40,6 +40,16 @@ def test_parse_row_handles_populated_and_null_fields():
     assert row.error_message is None
 
 
+def test_parse_row_normalizes_uppercase_status_from_postgres():
+    # SQLAlchemy Enum stores uppercase enum names in Postgres;
+    # _parse_row must normalize to lowercase to match rest of harness.
+    line = f"{JOB_ID}|STARTED|1|3|||||"
+
+    row = _parse_row(line)
+
+    assert row.status == "started"
+
+
 def test_snapshot_queries_and_parses(mocker):
     line = f"{JOB_ID}|queued|0|3|2026-08-03 10:00:00.000000||||"
     mocker.patch("pipeline.jobs._run_query", return_value=line + "\n")
