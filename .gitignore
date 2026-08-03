@@ -60,6 +60,6 @@ cache/
 CLAUDE.md
 local/*
 !local/sample.pdf
-!local/smoke_test.py
+!local/smoke.py
 !local/pipeline/
 !local/scenarios/
