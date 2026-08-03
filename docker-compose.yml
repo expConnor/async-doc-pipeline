@@ -31,6 +31,8 @@ services:
     # makes it a fixed unit of capacity, so throughput scales with replicas —
     # which is what ECS does in prod via per-task vCPU.
     cpus: 1
+    deploy:
+      replicas: 3
     environment:
       POSTGRES_HOST: postgres
       RABBITMQ_HOST: rabbitmq
