@@ -61,3 +61,5 @@ CLAUDE.md
 local/*
 !local/sample.pdf
 !local/smoke_test.py
+!local/pipeline/
+!local/scenarios/
