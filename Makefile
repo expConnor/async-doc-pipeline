@@ -1,4 +1,4 @@
-.PHONY: setup seed migrate nuke run test lint format help
+.PHONY: setup seed migrate nuke run chaos test lint format help
 
 # Default so bare `make seed` is valid, not a Typer usage error.
 COUNT ?= 1
@@ -17,7 +17,10 @@ seed:        ## Bulk-create accounts. Usage: make seed COUNT=50
 	poetry run python -m cli.main account create --count $(COUNT)
 
 run:         ## Smoke test the whole system end-to-end. Usage: make run COUNT=100
-	poetry run python local/smoke_test.py $(COUNT)
+	poetry run python local/smoke.py $(COUNT)
+
+chaos:       ## Run a failure-injection scenario. Usage: make chaos SCENARIO=worker-kill
+	poetry run python local/chaos.py $(SCENARIO)
 
 migrate:     ## Apply Alembic migrations only (setup already includes this)
 	poetry run python -m cli.main migrate
