@@ -5,12 +5,15 @@
 Find out what the pipeline actually does when things go wrong, rather than
 what `CLAUDE.md` claims it does.
 
-This spec covers **the harness skeleton plus specifications for all twelve
-failure-mode scenarios**. The skeleton is built in one pass; each scenario is
-then implemented independently, one per session. Every scenario spec below is
-therefore written to be picked up cold — it states what is claimed, how to
-inject the fault, what to record, and what is expected — without needing the
-conversation that produced it.
+This spec covers the harness skeleton plus specifications for twelve
+failure-mode scenarios. The skeleton is built in one pass. Of the twelve,
+**seven are built this round**. The other five are fully specified
+under **Deferred scenarios** so they can be picked up cold later, but are not
+part of this round's build order.
+
+Every scenario spec, priority or deferred, is written to be picked up cold —
+it states what is claimed, how to inject the fault, what to record, and what
+is expected — without needing the conversation that produced it.
 
 This round is **diagnosis only**. No production code changes, no fixes. Fixes
 become a separate, better-informed round once the findings exist.
@@ -34,7 +37,7 @@ which better instruments already exist:
 - RabbitMQ's management UI already exposes queue depth, unacked count, and
   consumer count.
 
-Traces are also actively *worse* for the top scenario: a SIGKILLed worker never
+Traces are also actively _worse_ for the top scenario: a SIGKILLed worker never
 flushes its spans, whereas the job row survives. OTel belongs in a later round,
 when sustained load on AWS needs aggregate latency breakdowns.
 
@@ -77,7 +80,7 @@ The database enforces the transition; a racing loser gets zero rows and raises
 
 **Graceful shutdown may hang when idle (unknown).** `worker/main.py` binds
 SIGTERM to `consumer.request_stop()`, which sets an `asyncio.Event`. The
-consume loop only checks that event when the *next* message arrives:
+consume loop only checks that event when the _next_ message arrives:
 
 ```python
 async for msg in it:
@@ -113,7 +116,7 @@ regardless of replica count.
   hardcoded.
 - `backpressure_threshold` defaults to 1000 and is env-settable.
 - Backpressure is checked in `api/services/job.py` as `depth >= threshold`,
-  *before* the job row is created, and raises `BackpressureException` → 429.
+  _before_ the job row is created, and raises `BackpressureException` → 429.
 - Default worker replica count for scenarios is 3, which is required for the
   concurrency-dependent ones.
 
@@ -157,8 +160,8 @@ async with PipelineClient() as client:
 ```
 
 `start_processing` must surface a 429 as a distinct, catchable outcome rather
-than a generic HTTP error — scenario 5 depends on distinguishing "rejected by
-backpressure" from "failed".
+than a generic HTTP error — the `backpressure` scenario depends on
+distinguishing "rejected by backpressure" from "failed".
 
 The MinIO hostname patch carries over unchanged in behaviour from
 `smoke_test.py`: presigned URLs contain the literal hostname `minio`, which
@@ -196,11 +199,11 @@ the twelve scenarios, so no scenario shells out on its own:
 - `pause(container)` / `unpause(container)`
 - `scale_workers(n)` — `docker compose up -d --scale worker=n`
 - `disconnect(container)` / `connect(container)` — `docker network
-  disconnect|connect doc-pipeline_default <container>`, for simulating
+disconnect|connect doc-pipeline_default <container>`, for simulating
   connectivity blips without shutting a dependency down
 - `logs(service, since) -> str`
 - `queue_depth() -> int`, `unacked_count() -> int` — via `rabbitmqctl
-  list_queues name messages messages_unacknowledged`
+list_queues name messages messages_unacknowledged`
 - `container_state(container) -> ContainerState` — running flag, started-at,
   restart count, exit code; used to detect a worker process dying outright
 
@@ -240,12 +243,13 @@ guesses as requirements. Scenarios report; the human judges.
 ## Scenario specifications
 
 Each becomes one module in `local/scenarios/`, registered by name in
-`scenarios/__init__.py`, implemented in its own session. All assume 3 workers
-unless stated otherwise, and all must restore the stack afterwards.
+`scenarios/__init__.py`. All assume 3 workers unless stated otherwise, and all
+must restore the stack afterwards. The seven below are built this round, in
+priority order; five more, deferred, follow in their own section.
 
 ### 1. `worker-kill` — hard kill mid-job
 
-*Claimed:* redelivery plus the idempotency check recovers the job.
+_Claimed:_ redelivery plus the idempotency check recovers the job.
 
 Submit `slow.pdf`, `wait_for_status(STARTED)`, identify the claiming worker
 from its logs, `kill()` it, then `watch()` for 60s.
@@ -254,11 +258,46 @@ Record: final job status and `attempts`; whether any surviving worker logged
 `consumer.idempotency_drop`; queue depth over time; whether the job ever
 reaches a terminal state.
 
-*Expected:* real gap — job stranded in `STARTED` forever.
+_Expected:_ real gap — job stranded in `STARTED` forever.
 
-### 2. `shutdown-compare` — graceful vs. hard
+### 2. `redelivery-race` — concurrent claims
 
-*Claimed:* SIGTERM lets the in-flight job finish and ack; SIGKILL does not.
+_Claimed:_ "the `STARTED` transition commits in its own session so a concurrent
+redelivery sees it and drops."
+
+With 3 workers live, publish the _same_ `job_id` message to the queue N times
+in rapid succession, forcing simultaneous claims.
+
+Record: count of `consumer.job_started` log lines (must be exactly 1), count of
+`concurrent_claim_dropped` / `idempotency_drop`, final `attempts`, and
+`artifact_count(document_id)`. More than one `job_started`, or more than one
+artifact row, means the compare-and-swap leaks.
+
+_Expected:_ passes, per the SQL compare-and-swap noted above. Worth proving
+because the failure mode is silent.
+
+### 3. `backpressure` — threshold exhaustion
+
+_Claimed:_ the API rejects new `/process` calls with 429 once queue depth
+reaches `backpressure_threshold`.
+
+Rather than queuing 1000 jobs, restart the API with a low threshold
+(`BACKPRESSURE_THRESHOLD=5`) and scale workers to 0 so the queue cannot drain.
+Submit documents until the API starts refusing.
+
+Record: the depth at which the first 429 appears (should be exactly the
+threshold, since the check is `>=`), whether any job row is created for a
+rejected request (it should not be — the check precedes `create`), and that
+requests succeed again once workers are scaled back up and the queue drains.
+
+_Prerequisites:_ API restarted with the env override; workers scaled to 0.
+Both must be restored afterwards.
+
+_Expected:_ passes.
+
+### 4. `shutdown-compare` — graceful vs. hard
+
+_Claimed:_ SIGTERM lets the in-flight job finish and ack; SIGKILL does not.
 
 Three cases, reported side by side:
 
@@ -271,128 +310,12 @@ Three cases, reported side by side:
 Record: shutdown duration, container exit code (137 indicates SIGKILL, so a
 "graceful" stop exiting 137 was not graceful), final job status per case.
 
-*Expected:* case 1 clean; case 2 stranded like scenario 1; case 3 unknown,
-possibly hangs until the grace period expires.
+_Expected:_ case 1 clean; case 2 stranded like the `worker-kill` scenario;
+case 3 unknown, possibly hangs until the grace period expires.
 
-### 3. `rabbitmq-restart` — broker restart mid-processing
+### 5. `slow-pdf` — no per-job timeout
 
-*Claimed:* `aio_pika.connect_robust` reconnects.
-
-Submit `slow.pdf`, wait for `STARTED`, then `restart(doc-pipeline-rabbitmq)`.
-Hold until the broker is healthy again, then watch for 90s.
-
-Record: whether workers reconnect (log evidence and consumer count on the
-queue), what happens to the unacked in-flight message, whether the job
-completes, is redelivered and dropped, or is stranded; final queue depth.
-
-*Expected:* unknown. Reconnection likely works; the fate of the in-flight
-message is the real question, and if it is redelivered while the job is
-`STARTED` it will hit the same idempotency-drop hole as scenario 1.
-
-### 4. `postgres-drop` — DB connectivity lost mid-job
-
-*Claimed:* nothing specific. Open question.
-
-Submit `slow.pdf`, wait for `STARTED`, then `disconnect(doc-pipeline-postgres)`
-so the DB becomes unreachable without shutting down. Hold ~20s, then
-`connect()` it again.
-
-Record: whether the worker process survives or exits; whether it retries;
-whether the exception escapes `_handle` — note that `_handle_failure` itself
-opens a session, so a DB outage during failure handling can raise
-`DatabaseException` before `msg.ack()` is reached, which may crash the consume
-loop. Capture worker `container_state` before and after.
-
-*Expected:* unknown, and this is the most likely place to find an unhandled
-crash path.
-
-### 5. `backpressure` — threshold exhaustion
-
-*Claimed:* the API rejects new `/process` calls with 429 once queue depth
-reaches `backpressure_threshold`.
-
-Rather than queuing 1000 jobs, restart the API with a low threshold
-(`BACKPRESSURE_THRESHOLD=5`) and scale workers to 0 so the queue cannot drain.
-Submit documents until the API starts refusing.
-
-Record: the depth at which the first 429 appears (should be exactly the
-threshold, since the check is `>=`), whether any job row is created for a
-rejected request (it should not be — the check precedes `create`), and that
-requests succeed again once workers are scaled back up and the queue drains.
-
-*Prerequisites:* API restarted with the env override; workers scaled to 0.
-Both must be restored afterwards.
-
-*Expected:* passes.
-
-### 6. `corrupt-pdf` — malformed input, fault isolation
-
-*Claimed:* one job per container isolates faults.
-
-Upload `garbage.pdf` bytes to a presigned URL, then process. The question is
-not whether the job fails — it is whether the **worker process survives**.
-PyMuPDF is a C library; a segfault kills the container rather than raising a
-catchable Python exception.
-
-Record: status progression across retries, final `error_message`, whether the
-job reaches terminal `FAILED` at `max_attempts`, and worker `container_state`
-(uptime, restart count, exit code) before vs. after.
-
-*Expected:* likely clean — `process()` raises, `except Exception` catches it.
-The container-survival check is the real value.
-
-### 7. `max-attempts` — retry exhaustion is terminal
-
-*Claimed:* on failure, requeue while `attempts < max_attempts`, then terminal
-`FAILED`; retrying jobs cycle through `QUEUED` and never touch `FAILED`.
-
-Reuses the corrupt-PDF fixture as a deterministic failure, but focuses on the
-retry ledger rather than process survival. Watch the job through every attempt.
-
-Record: the full sequence of observed statuses (expect
-`QUEUED → STARTED → QUEUED → … → FAILED`), `attempts` at each step, that
-`failed_at` is written only on terminal failure, and that no further
-redelivery occurs after `FAILED`.
-
-*Expected:* passes.
-
-### 8. `redelivery-race` — concurrent claims
-
-*Claimed:* "the `STARTED` transition commits in its own session so a concurrent
-redelivery sees it and drops."
-
-With 3 workers live, publish the *same* `job_id` message to the queue N times
-in rapid succession, forcing simultaneous claims.
-
-Record: count of `consumer.job_started` log lines (must be exactly 1), count of
-`concurrent_claim_dropped` / `idempotency_drop`, final `attempts`, and
-`artifact_count(document_id)`. More than one `job_started`, or more than one
-artifact row, means the compare-and-swap leaks.
-
-*Expected:* passes, per the SQL compare-and-swap noted above. Worth proving
-because the failure mode is silent.
-
-### 9. `storage-down` — S3/MinIO unreachable mid-job
-
-*Claimed:* nothing specific. Open question.
-
-Two variants, since the worker touches storage twice:
-
-1. `disconnect(doc-pipeline-minio)` before the fetch, so `get_object` fails.
-2. `disconnect()` during the parse, so the *upload* fails after expensive work
-   is already done.
-
-Reconnect after ~20s in both.
-
-Record: which exception surfaces, whether it is retried, whether the job lands
-in `FAILED` cleanly or crashes the worker, and — for variant 2 — whether an
-artifact row is created without a corresponding S3 object (silent data loss).
-
-*Expected:* unknown. Variant 2 is the higher-value case.
-
-### 10. `slow-pdf` — no per-job timeout
-
-*Claimed:* nothing. This tests an absence.
+_Claimed:_ nothing. This tests an absence.
 
 Two parts. First, submit `slow.pdf` and measure whether anything ever
 interrupts a 60-second parse. Second, `pause()` the worker mid-parse to
@@ -404,12 +327,101 @@ Record: elapsed processing time, whether any timeout fired, job status while
 paused and after unpause, queue depth throughout, and whether the paused
 worker still counts as a live consumer on the queue.
 
-*Expected:* real gap — no timeout exists; a paused worker holds its job
+_Expected:_ real gap — no timeout exists; a paused worker holds its job
 indefinitely.
+
+### 6. `storage-down` — S3/MinIO unreachable mid-job
+
+_Claimed:_ nothing specific. Open question.
+
+Two variants, since the worker touches storage twice:
+
+1. `disconnect(doc-pipeline-minio)` before the fetch, so `get_object` fails.
+2. `disconnect()` during the parse, so the _upload_ fails after expensive work
+   is already done.
+
+Reconnect after ~20s in both.
+
+Record: which exception surfaces, whether it is retried, whether the job lands
+in `FAILED` cleanly or crashes the worker, and — for variant 2 — whether an
+artifact row is created without a corresponding S3 object (silent data loss).
+
+_Expected:_ unknown. Variant 2 is the higher-value case.
+
+### 7. `postgres-drop` — DB connectivity lost mid-job
+
+_Claimed:_ nothing specific. Open question.
+
+Submit `slow.pdf`, wait for `STARTED`, then `disconnect(doc-pipeline-postgres)`
+so the DB becomes unreachable without shutting down. Hold ~20s, then
+`connect()` it again.
+
+Record: whether the worker process survives or exits; whether it retries;
+whether the exception escapes `_handle` — note that `_handle_failure` itself
+opens a session, so a DB outage during failure handling can raise
+`DatabaseException` before `msg.ack()` is reached, which may crash the consume
+loop. Capture worker `container_state` before and after.
+
+_Expected:_ unknown, and this is the most likely place to find an unhandled
+crash path.
+
+## Deferred scenarios
+
+Fully specified so they can be picked up cold later, but not part of this
+round's build order. Each is lower-drama, largely confirmatory of behavior
+already traced in code review, or mostly re-proves a dependency's own
+guarantee rather than this project's own code.
+
+### 8. `rabbitmq-restart` — broker restart mid-processing
+
+_Claimed:_ `aio_pika.connect_robust` reconnects.
+
+Submit `slow.pdf`, wait for `STARTED`, then `restart(doc-pipeline-rabbitmq)`.
+Hold until the broker is healthy again, then watch for 90s.
+
+Record: whether workers reconnect (log evidence and consumer count on the
+queue), what happens to the unacked in-flight message, whether the job
+completes, is redelivered and dropped, or is stranded; final queue depth.
+
+_Expected:_ unknown. Reconnection likely works; the fate of the in-flight
+message is the real question, and if it is redelivered while the job is
+`STARTED` it will hit the same idempotency-drop hole as the `worker-kill`
+scenario.
+
+### 9. `corrupt-pdf` — malformed input, fault isolation
+
+_Claimed:_ one job per container isolates faults.
+
+Upload `garbage.pdf` bytes to a presigned URL, then process. The question is
+not whether the job fails — it is whether the **worker process survives**.
+PyMuPDF is a C library; a segfault kills the container rather than raising a
+catchable Python exception.
+
+Record: status progression across retries, final `error_message`, whether the
+job reaches terminal `FAILED` at `max_attempts`, and worker `container_state`
+(uptime, restart count, exit code) before vs. after.
+
+_Expected:_ likely clean — `process()` raises, `except Exception` catches it.
+The container-survival check is the real value.
+
+### 10. `max-attempts` — retry exhaustion is terminal
+
+_Claimed:_ on failure, requeue while `attempts < max_attempts`, then terminal
+`FAILED`; retrying jobs cycle through `QUEUED` and never touch `FAILED`.
+
+Reuses the corrupt-PDF fixture as a deterministic failure, but focuses on the
+retry ledger rather than process survival. Watch the job through every attempt.
+
+Record: the full sequence of observed statuses (expect
+`QUEUED → STARTED → QUEUED → … → FAILED`), `attempts` at each step, that
+`failed_at` is written only on terminal failure, and that no further
+redelivery occurs after `FAILED`.
+
+_Expected:_ passes.
 
 ### 11. `double-process` — same document, two jobs
 
-*Claimed:* nothing directly, but object keys are deterministic per document, so
+_Claimed:_ nothing directly, but object keys are deterministic per document, so
 two jobs for one document write the same S3 key.
 
 Submit one document, then call `/process` on it twice in quick succession to
@@ -419,13 +431,13 @@ Record: whether the API permits a second job while the first is active, whether
 both jobs run to `COMPLETED`, how many artifact rows exist for the document,
 and whether the artifact object is written twice.
 
-*Expected:* likely both succeed and both write the same key — last write wins.
+_Expected:_ likely both succeed and both write the same key — last write wins.
 Distinguish harmless idempotent rewrite (same bytes) from genuine corruption
 (interleaved writes, or two artifact rows pointing at one object).
 
 ### 12. `backlog-recovery` — deploy simulation
 
-*Claimed:* nothing directly; this is the everyday case.
+_Claimed:_ nothing directly; this is the everyday case.
 
 `scale_workers(0)`, submit ~20 documents so they queue with no consumers,
 confirm depth, then `scale_workers(3)` and watch recovery.
@@ -434,7 +446,7 @@ Record: queue depth over time, whether every job eventually completes, whether
 any job is lost or duplicated, time to drain, and whether jobs queued while
 workers were absent show abnormal `attempts` counts.
 
-*Expected:* passes. Worth confirming because it is the most frequently
+_Expected:_ passes. Worth confirming because it is the most frequently
 exercised path in production.
 
 ## Build order
@@ -445,12 +457,18 @@ exercised path in production.
 
 Plus **one reference scenario, `worker-kill`**. A framework with no consumer
 cannot be verified, and the first scenario is what proves the primitives are
-the right shape. It also gives the remaining eleven sessions a concrete
-template to copy. If it turns out the abstractions are wrong, that is far
-cheaper to discover now than after eleven modules depend on them.
+the right shape. It also gives the remaining sessions a concrete template to
+copy. If it turns out the abstractions are wrong, that is far cheaper to
+discover now than after several modules depend on them.
 
-**Later rounds:** scenarios 2–12, one per session. Each adds exactly one module
-plus one registry line, and touches nothing else.
+**Later rounds:** the remaining six priority scenarios, one per session, in
+the order given above — `redelivery-race`, `backpressure`, `shutdown-compare`,
+`slow-pdf`, `storage-down`, `postgres-drop`. Each adds exactly one module plus
+one registry line, and touches nothing else.
+
+**Stretch, build only if time remains:** the deferred scenarios —
+`rabbitmq-restart`, `corrupt-pdf`, `max-attempts`, `double-process`,
+`backlog-recovery` — same one-module-per-session shape, no particular order.
 
 ## Smoke-test refactor
 
@@ -466,7 +484,7 @@ Three concrete problems it fixes:
    format, and error-handle in one ~50-line function, with a `queued_counter`
    threaded through solely for a progress message. It becomes short
    orchestration over the client's four methods.
-3. **Results reporting tangled with execution.** `return False` loses *why* a
+3. **Results reporting tangled with execution.** `return False` loses _why_ a
    run failed. A `Result` dataclass carries status, elapsed time, and error;
    the summary formats it.
 
@@ -499,6 +517,6 @@ scenario observes, and the scenario-adding checklist for future sessions.
 
 ## Deliverable
 
-A findings write-up covering, for each scenario: what `CLAUDE.md` claims, what
-was actually observed, and whether that constitutes a gap. That document is the
-input to the fix round.
+A findings write-up covering, for each scenario built: what `CLAUDE.md`
+claims, what was actually observed, and whether that constitutes a gap. That
+document is the input to the fix round.
