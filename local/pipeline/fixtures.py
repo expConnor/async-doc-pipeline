@@ -11,9 +11,9 @@ import pymupdf
 SAMPLE_PDF = Path(__file__).parent.parent / "sample.pdf"
 FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
 
-# Parse time is linear at ~1.0s/page on a 1-CPU worker (measured). 60 pages
-# gives a ~60s window, wide enough to land a fault injection reliably mid-job.
-SLOW_PDF_MIN_PAGES = 60
+# Parse time is linear at ~1.0s/page on a 1-CPU worker (measured). 30 pages
+# gives a ~30s window, wide enough to land a fault injection reliably mid-job.
+SLOW_PDF_MIN_PAGES = 30
 
 
 # "Fixture" here means a test input file generated on demand rather than
