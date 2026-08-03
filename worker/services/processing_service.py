@@ -1,4 +1,5 @@
 from typing import Any
+from uuid import UUID
 
 import structlog
 
@@ -34,7 +35,7 @@ class ProcessingService(IProcessingService):
         self._storage = storage
         self._parser = parser
 
-    async def process(self, session: Any, job_id: int) -> None:
+    async def process(self, session: Any, job_id: UUID) -> None:
         job = await self._job_repo.get_for_processing(session, job_id)
         if job is None:
             raise JobNotFoundException()
