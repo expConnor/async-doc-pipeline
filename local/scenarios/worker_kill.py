@@ -50,8 +50,17 @@ async def run(ctx: ScenarioContext) -> Report:
 
 
 def _find_claiming_worker(ctx: ScenarioContext, job_id: UUID) -> str:
+    containers = ctx.docker.worker_containers()
     log_text = ctx.docker.logs("worker", since="2m")
     for line in log_text.splitlines():
         if str(job_id) in line and "job_started" in line:
-            return line.split("|", 1)[0].strip()
+            short_name = line.split("|", 1)[0].strip()
+            for container in containers:
+                if container.endswith(short_name):
+                    return container
+            raise RuntimeError(
+                f"job {job_id}'s log line matched short name "
+                f"{short_name!r} but no container in {containers} "
+                "matches it"
+            )
     raise RuntimeError(f"no worker log line found for job {job_id}")

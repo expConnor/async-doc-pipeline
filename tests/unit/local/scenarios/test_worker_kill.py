@@ -41,7 +41,7 @@ async def test_worker_kill_finds_and_kills_the_claiming_worker():
         "doc-pipeline-worker-2",
     ]
     docker.logs.return_value = (
-        f"doc-pipeline-worker-1  | consumer.job_started job_id={JOB_ID}"
+        f"worker-1  | consumer.job_started job_id={JOB_ID}"
     )
     docker.queue_depth.return_value = 0
 
@@ -91,7 +91,7 @@ async def test_worker_kill_raises_if_no_worker_log_matches():
 
     docker = MagicMock()
     docker.worker_containers.return_value = ["doc-pipeline-worker-1"]
-    docker.logs.return_value = "doc-pipeline-worker-1  | (nothing relevant)"
+    docker.logs.return_value = "worker-1  | (nothing relevant)"
 
     fixtures = MagicMock()
     fixtures.slow_pdf.return_value = SimpleNamespace(
@@ -108,3 +108,41 @@ async def test_worker_kill_raises_if_no_worker_log_matches():
     except RuntimeError:
         raised = True
     assert raised
+
+
+async def test_worker_kill_raises_if_log_short_name_has_no_container():
+    client = AsyncMock()
+    client.submit_document.return_value = SimpleNamespace(
+        id=DOC_ID, upload_url="http://x/upload"
+    )
+    client.start_processing.return_value = JOB_ID
+
+    jobs = MagicMock()
+    jobs.wait_for_status.return_value = _snapshot("started")
+
+    docker = MagicMock()
+    # The log line matches on job_id and "job_started", but its short name
+    # ("worker-9") doesn't correspond to any real container in the list —
+    # e.g. a stale/scaled-down replica. This must raise, not silently pass
+    # the unresolved short name straight to docker.kill().
+    docker.worker_containers.return_value = ["doc-pipeline-worker-1"]
+    docker.logs.return_value = (
+        f"worker-9  | consumer.job_started job_id={JOB_ID}"
+    )
+
+    fixtures = MagicMock()
+    fixtures.slow_pdf.return_value = SimpleNamespace(
+        read_bytes=lambda: b"pdf-bytes"
+    )
+
+    ctx = ScenarioContext(
+        client=client, fixtures=fixtures, docker=docker, jobs=jobs
+    )
+
+    try:
+        await run(ctx)
+        raised = False
+    except RuntimeError:
+        raised = True
+    assert raised
+    docker.kill.assert_not_called()
