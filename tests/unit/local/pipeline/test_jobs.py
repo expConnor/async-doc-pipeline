@@ -1,9 +1,11 @@
+import subprocess
 from datetime import datetime
 from uuid import UUID
 
 import pytest
 from pipeline.jobs import (
     _parse_row,
+    _run_query,
     artifact_count,
     snapshot,
     wait_for_status,
@@ -78,6 +80,20 @@ def test_wait_for_status_polls_until_match(mocker):
     assert result.status == "started"
 
 
+def test_wait_for_status_normalizes_uppercase_status_argument(mocker):
+    # DB enum labels are uppercase, so passing "STARTED" is an easy mistake;
+    # it must match the lowercased JobSnapshot.status the same way "started"
+    # does, rather than polling until timeout.
+    mocker.patch("pipeline.jobs.time.sleep")
+    queued = _parse_row(f"{JOB_ID}|queued|0|3|||||")
+    started = _parse_row(f"{JOB_ID}|started|1|3|||||")
+    mocker.patch("pipeline.jobs.snapshot", side_effect=[queued, started])
+
+    result = wait_for_status(JOB_ID, "STARTED", timeout=5)
+
+    assert result.status == "started"
+
+
 def test_wait_for_status_times_out(mocker):
     mocker.patch("pipeline.jobs.time.sleep")
     queued = _parse_row(f"{JOB_ID}|queued|0|3|||||")
@@ -109,3 +125,18 @@ def test_artifact_count_parses_integer(mocker):
     mocker.patch("pipeline.jobs._run_query", return_value="2\n")
 
     assert artifact_count(DOC_ID) == 2
+
+
+def test_run_query_failure_surfaces_stderr_in_message(mocker):
+    mocker.patch(
+        "pipeline.jobs.subprocess.run",
+        side_effect=subprocess.CalledProcessError(
+            1,
+            ["docker", "compose", "exec"],
+            output="",
+            stderr="relation missing",
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="relation missing"):
+        _run_query("SELECT 1")

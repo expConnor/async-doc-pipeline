@@ -79,7 +79,7 @@ async def test_worker_kill_finds_and_kills_the_claiming_worker():
     ]
 
 
-async def test_worker_kill_raises_if_no_worker_log_matches():
+async def test_worker_kill_records_error_if_no_worker_log_matches():
     client = AsyncMock()
     client.submit_document.return_value = SimpleNamespace(
         id=DOC_ID, upload_url="http://x/upload"
@@ -102,15 +102,20 @@ async def test_worker_kill_raises_if_no_worker_log_matches():
         client=client, fixtures=fixtures, docker=docker, jobs=jobs
     )
 
-    try:
-        await run(ctx)
-        raised = False
-    except RuntimeError:
-        raised = True
-    assert raised
+    # The lookup helper's RuntimeError must not propagate out of run(): it
+    # is caught, recorded as a "scenario_error" event, and a Report is
+    # still returned so chaos.py always has something to print.
+    report = await run(ctx)
+
+    assert isinstance(report, Report)
+    event_names = [e[1] for e in report.events]
+    assert event_names[-1] == "scenario_error"
+    assert "no worker log line found" in report.events[-1][2]
+    assert "scenario raised" in report.summary
+    docker.kill.assert_not_called()
 
 
-async def test_worker_kill_raises_if_log_short_name_has_no_container():
+async def test_worker_kill_records_error_if_log_short_name_has_no_container():
     client = AsyncMock()
     client.submit_document.return_value = SimpleNamespace(
         id=DOC_ID, upload_url="http://x/upload"
@@ -123,8 +128,8 @@ async def test_worker_kill_raises_if_log_short_name_has_no_container():
     docker = MagicMock()
     # The log line matches on job_id and "job_started", but its short name
     # ("worker-9") doesn't correspond to any real container in the list —
-    # e.g. a stale/scaled-down replica. This must raise, not silently pass
-    # the unresolved short name straight to docker.kill().
+    # e.g. a stale/scaled-down replica. This must be recorded as an error,
+    # not silently pass the unresolved short name straight to docker.kill().
     docker.worker_containers.return_value = ["doc-pipeline-worker-1"]
     docker.logs.return_value = (
         f"worker-9  | consumer.job_started job_id={JOB_ID}"
@@ -139,10 +144,11 @@ async def test_worker_kill_raises_if_log_short_name_has_no_container():
         client=client, fixtures=fixtures, docker=docker, jobs=jobs
     )
 
-    try:
-        await run(ctx)
-        raised = False
-    except RuntimeError:
-        raised = True
-    assert raised
+    report = await run(ctx)
+
+    assert isinstance(report, Report)
+    event_names = [e[1] for e in report.events]
+    assert event_names[-1] == "scenario_error"
+    assert "no container" in report.events[-1][2]
+    assert "scenario raised" in report.summary
     docker.kill.assert_not_called()

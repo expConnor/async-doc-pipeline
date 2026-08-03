@@ -37,6 +37,11 @@ async def test_known_scenario_runs_and_prints_report(capsys):
         code = await chaos._main("worker-kill")
 
     scenario_fn.assert_awaited_once()
+    ctx = scenario_fn.await_args.args[0]
+    assert ctx.client is fake_client
+    assert ctx.docker is chaos.docker_module
+    assert ctx.jobs is chaos.jobs_module
+    assert ctx.fixtures is chaos.fixtures_module
     out = capsys.readouterr().out
     assert "REPORT TEXT" in out
     assert code == 0

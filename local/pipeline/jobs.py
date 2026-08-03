@@ -3,6 +3,14 @@ container, bypassing the HTTP API. The API's JobResponse doesn't expose
 attempts/last_attempt_at/failed_at/error_message together the way diagnosis
 needs, and reading the DB directly is a durable record of exactly what
 happened regardless of what the worker process is doing at the time.
+
+All functions in this module are synchronous and block the calling thread
+(`time.sleep` in `wait_for_status`/`watch`, `subprocess.run` in
+`_run_query`). An `async def run(ctx)` scenario that needs to poll here
+while also doing other async work (submitting more documents, driving the
+API) must wrap these calls in `await asyncio.to_thread(...)` rather than
+calling them directly, or the event loop will stall for the duration of
+the poll/sleep.
 """
 
 import subprocess
@@ -32,12 +40,13 @@ def _run_query(sql: str) -> str:
     script = (
         f'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -A -F\'|\' -c "{sql}"'
     )
-    result = subprocess.run(
-        ["docker", "compose", "exec", "-T", "postgres", "sh", "-c", script],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
+    cmd = ["docker", "compose", "exec", "-T", "postgres", "sh", "-c", script]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(
+            f"command {cmd} failed (exit {e.returncode}): {e.stderr}"
+        ) from e
     return result.stdout
 
 
@@ -78,6 +87,11 @@ def snapshot(job_id: UUID) -> JobSnapshot:
 def wait_for_status(
     job_id: UUID, status: str, timeout: float, interval: float = 1.0
 ) -> JobSnapshot:
+    # JobSnapshot.status is always lowercase (see _parse_row); normalize the
+    # caller-supplied status the same way so e.g. "STARTED" (an easy mistake,
+    # since the DB's raw enum labels are uppercase) matches instead of
+    # silently polling until timeout.
+    status = status.lower()
     deadline = time.monotonic() + timeout
     last = snapshot(job_id)
     while last.status != status and time.monotonic() < deadline:

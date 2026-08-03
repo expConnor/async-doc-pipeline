@@ -1,6 +1,7 @@
 import json
 import subprocess
 
+import pytest
 from pipeline import docker
 
 
@@ -8,6 +9,18 @@ def _fake_completed(stdout: str = "") -> subprocess.CompletedProcess:
     return subprocess.CompletedProcess(
         args=[], returncode=0, stdout=stdout, stderr=""
     )
+
+
+def test_run_failure_surfaces_stderr_in_message(mocker):
+    mocker.patch(
+        "pipeline.docker.subprocess.run",
+        side_effect=subprocess.CalledProcessError(
+            1, ["docker", "kill", "x"], output="", stderr="No such container: x"
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="No such container: x"):
+        docker.kill("x")
 
 
 def test_worker_containers_lists_replicas(mocker):

@@ -20,7 +20,12 @@ class ContainerState:
 
 
 def _run(cmd: list[str]) -> str:
-    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(
+            f"command {cmd} failed (exit {e.returncode}): {e.stderr}"
+        ) from e
     return result.stdout
 
 
