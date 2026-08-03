@@ -4,7 +4,6 @@ test and every scenario need against the live API.
 
 import asyncio
 import csv
-import socket
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,33 +14,6 @@ import httpx
 
 BASE_URL = "http://localhost:8080"
 ACCOUNTS_CSV = Path(__file__).parent.parent / "accounts.csv"
-
-# The API container resolves S3/MinIO via the container-network hostname
-# "minio" (see docker-compose.yml's S3_ENDPOINT_URL override), so presigned
-# upload URLs the API returns contain that hostname literally. It doesn't
-# resolve from the host machine. MinIO's port is published to the host as
-# localhost:9000, so redirect just that one hostname to localhost — the
-# request still sends "Host: minio:9000" (the header the presigned URL's
-# SigV4 signature covers), it just connects to localhost at the TCP level.
-# Both the str and bytes forms are checked because httpx resolves through
-# anyio, which passes the hostname as bytes to socket.getaddrinfo (confirmed
-# empirically — a str-only check does not catch it and the upload fails with
-# a DNS error).
-_real_getaddrinfo = socket.getaddrinfo
-
-
-# This function "monkeypatches" socket.getaddrinfo — Python lets you reassign
-# a function at runtime, even one from the standard library. socket.getaddrinfo
-# is the function every network call in Python eventually goes through to turn
-# a hostname into an IP address (DNS resolution). Here we're not editing that
-# function's source code — we're swapping out what the name `socket.getaddrinfo`
-# points to, for the lifetime of `with PipelineClient()`. `_real_getaddrinfo`
-# above is a saved reference to the original, so this wrapper can still do a
-# real lookup for every hostname except "minio".
-def _patched_getaddrinfo(host, *args, **kwargs):
-    if host == "minio" or host == b"minio":
-        host = "localhost"
-    return _real_getaddrinfo(host, *args, **kwargs)
 
 
 # @dataclass is a decorator (a function that wraps another and changes its
@@ -73,10 +45,9 @@ class JobFailed(Exception):
 # lets code write `async with PipelineClient() as client:` and be guaranteed
 # __aexit__ runs on the way out, even if an exception happens inside the
 # `with` block. That guarantee is the whole reason this class exists as a
-# context manager rather than a function: __aenter__ patches
-# socket.getaddrinfo and opens two httpx clients, and __aexit__ must always
-# undo the patch and close those clients — a scenario that crashes halfway
-# through must not leave the DNS patch active for the rest of the process.
+# context manager rather than a function: __aenter__ opens two httpx clients,
+# and __aexit__ must always close them, even if the block crashes halfway
+# through.
 class PipelineClient:
     def __init__(
         self,
@@ -94,7 +65,6 @@ class PipelineClient:
         # what to expect it to become.
         self._api: httpx.AsyncClient | None = None
         self._upload: httpx.AsyncClient | None = None
-        self._original_getaddrinfo = socket.getaddrinfo
 
     # `async def` marks this as a coroutine function — calling it doesn't run
     # the body immediately, it returns an awaitable that the caller must
@@ -105,11 +75,7 @@ class PipelineClient:
     # the whole program on that wait — this matters in smoke.py, where dozens
     # of documents are submitted concurrently.
     async def __aenter__(self) -> "PipelineClient":
-        self._original_getaddrinfo = socket.getaddrinfo
-        # Load API key before patching — if this fails, patch stays inactive.
         api_key = self._load_api_key()
-        # Patch socket.getaddrinfo for client creation and usage.
-        socket.getaddrinfo = _patched_getaddrinfo
         self._api = httpx.AsyncClient(
             base_url=self._base_url,
             headers={"X-API-Key": api_key},
@@ -135,7 +101,6 @@ class PipelineClient:
         exc: BaseException | None,
         tb: TracebackType | None,
     ) -> None:
-        socket.getaddrinfo = self._original_getaddrinfo
         # These two `assert` calls aren't validating user input — they're
         # telling both the reader and the type checker "these are never None
         # by the time __aexit__ runs, because __aenter__ always sets them

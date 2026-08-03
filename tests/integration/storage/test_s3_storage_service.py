@@ -114,3 +114,22 @@ async def test_generate_download_url_client_error_raises_storage_exception(
 
     with pytest.raises(StorageException):
         await s3_service.generate_download_url("artifacts/1/doc.md")
+
+
+async def test_presigned_urls_use_public_endpoint_when_configured():
+    with mock_aws():
+        boto3.client("s3", region_name=REGION).create_bucket(Bucket=BUCKET)
+        service = S3StorageService(
+            bucket=BUCKET,
+            region=REGION,
+            endpoint_url="http://minio:9000",
+            public_endpoint_url="http://localhost:9000",
+        )
+
+        upload_url = await service.generate_upload_url("uploads/doc.pdf")
+        download_url = await service.generate_download_url("artifacts/1/doc.md")
+
+        assert "localhost:9000" in upload_url
+        assert "localhost:9000" in download_url
+        assert "minio:9000" not in upload_url
+        assert "minio:9000" not in download_url

@@ -14,6 +14,7 @@ class S3StorageService(IStorageService):
         bucket: str,
         region: str,
         endpoint_url: str | None = None,
+        public_endpoint_url: str | None = None,
         access_key: str | None = None,
         secret_key: str | None = None,
     ) -> None:
@@ -29,10 +30,25 @@ class S3StorageService(IStorageService):
             client_kwargs["aws_secret_access_key"] = secret_key
         self._client = boto3.client("s3", **client_kwargs)
 
+        # Presigned URLs are handed to clients outside our network (browsers,
+        # curl, the host machine), so they must be signed against a host those
+        # clients can actually reach — not the internal Docker service name
+        # used for direct get/put/head calls above. When no public endpoint is
+        # configured (production, where S3 has one publicly reachable host),
+        # reuse the same client.
+        if public_endpoint_url is not None:
+            presign_kwargs = {
+                **client_kwargs,
+                "endpoint_url": public_endpoint_url,
+            }
+            self._presign_client = boto3.client("s3", **presign_kwargs)
+        else:
+            self._presign_client = self._client
+
     async def generate_upload_url(self, object_key: str) -> str:
         try:
             return await asyncio.to_thread(
-                self._client.generate_presigned_url,
+                self._presign_client.generate_presigned_url,
                 "put_object",
                 Params={"Bucket": self._bucket, "Key": object_key},
                 ExpiresIn=3600,
@@ -43,7 +59,7 @@ class S3StorageService(IStorageService):
     async def generate_download_url(self, object_key: str) -> str:
         try:
             return await asyncio.to_thread(
-                self._client.generate_presigned_url,
+                self._presign_client.generate_presigned_url,
                 "get_object",
                 Params={"Bucket": self._bucket, "Key": object_key},
                 ExpiresIn=3600,
