@@ -158,3 +158,21 @@ def test_minio_hostname_patch_redirects_str_and_bytes():
         assert called_with["host"] == "example.com"
     finally:
         client_module._real_getaddrinfo = original
+
+
+async def test_socket_patch_restored_on_aenter_failure(tmp_path):
+    """Verify socket.getaddrinfo restored even if __aenter__ fails."""
+    import socket
+
+    # Point to nonexistent file so _load_api_key raises FileNotFoundError.
+    nonexistent = tmp_path / "nonexistent.csv"
+    original_getaddrinfo = socket.getaddrinfo
+
+    try:
+        async with PipelineClient(accounts_csv=nonexistent):
+            pass  # Should not reach here.
+    except FileNotFoundError:
+        pass  # Expected.
+
+    # Verify patch was not left active.
+    assert socket.getaddrinfo is original_getaddrinfo

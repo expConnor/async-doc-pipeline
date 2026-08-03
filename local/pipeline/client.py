@@ -68,8 +68,10 @@ class PipelineClient:
 
     async def __aenter__(self) -> "PipelineClient":
         self._original_getaddrinfo = socket.getaddrinfo
-        socket.getaddrinfo = _patched_getaddrinfo
+        # Load API key before patching — if this fails, patch stays inactive.
         api_key = self._load_api_key()
+        # Patch socket.getaddrinfo for client creation and usage.
+        socket.getaddrinfo = _patched_getaddrinfo
         self._api = httpx.AsyncClient(
             base_url=self._base_url,
             headers={"X-API-Key": api_key},
