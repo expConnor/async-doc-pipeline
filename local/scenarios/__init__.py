@@ -7,7 +7,10 @@ checklist.
 from collections.abc import Awaitable, Callable
 
 from .base import Report, ScenarioContext
+from .worker_kill import run as worker_kill_run
 
 ScenarioFn = Callable[[ScenarioContext], Awaitable[Report]]
 
-SCENARIOS: dict[str, ScenarioFn] = {}
+SCENARIOS: dict[str, ScenarioFn] = {
+    "worker-kill": worker_kill_run,
+}
