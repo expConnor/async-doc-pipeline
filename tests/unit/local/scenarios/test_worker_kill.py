@@ -44,6 +44,7 @@ async def test_worker_kill_finds_and_kills_the_claiming_worker():
         f"worker-1  | consumer.job_started job_id={JOB_ID}"
     )
     docker.queue_depth.return_value = 0
+    docker.configured_worker_replicas.return_value = 3
 
     fixtures = MagicMock()
     fixtures.slow_pdf.return_value = SimpleNamespace(
@@ -62,6 +63,7 @@ async def test_worker_kill_finds_and_kills_the_claiming_worker():
     jobs.wait_for_status.assert_called_once_with(JOB_ID, "started", timeout=15)
     docker.kill.assert_called_once_with("doc-pipeline-worker-1")
     jobs.watch.assert_called_once_with(JOB_ID, duration=60)
+    docker.scale_workers.assert_called_once_with(3)
 
     assert isinstance(report, Report)
     assert report.scenario == "worker-kill"
@@ -92,6 +94,7 @@ async def test_worker_kill_records_error_if_no_worker_log_matches():
     docker = MagicMock()
     docker.worker_containers.return_value = ["doc-pipeline-worker-1"]
     docker.logs.return_value = "worker-1  | (nothing relevant)"
+    docker.configured_worker_replicas.return_value = 3
 
     fixtures = MagicMock()
     fixtures.slow_pdf.return_value = SimpleNamespace(
@@ -113,6 +116,7 @@ async def test_worker_kill_records_error_if_no_worker_log_matches():
     assert "no worker log line found" in report.events[-1][2]
     assert "scenario raised" in report.summary
     docker.kill.assert_not_called()
+    docker.scale_workers.assert_called_once_with(3)
 
 
 async def test_worker_kill_records_error_if_log_short_name_has_no_container():
@@ -134,6 +138,7 @@ async def test_worker_kill_records_error_if_log_short_name_has_no_container():
     docker.logs.return_value = (
         f"worker-9  | consumer.job_started job_id={JOB_ID}"
     )
+    docker.configured_worker_replicas.return_value = 3
 
     fixtures = MagicMock()
     fixtures.slow_pdf.return_value = SimpleNamespace(
@@ -152,3 +157,4 @@ async def test_worker_kill_records_error_if_log_short_name_has_no_container():
     assert "no container" in report.events[-1][2]
     assert "scenario raised" in report.summary
     docker.kill.assert_not_called()
+    docker.scale_workers.assert_called_once_with(3)

@@ -56,6 +56,18 @@ async def run(ctx: ScenarioContext) -> Report:
     except Exception as e:
         report.record("scenario_error", str(e))
         report.summary = f"scenario raised before completing: {e}"
+    finally:
+        # kill() is a mutating pipeline/docker.py call and, per the
+        # convention in local/README.md, must be undone here regardless of
+        # whether the scenario finished cleanly or raised — otherwise the
+        # killed worker never comes back and the stack is left one replica
+        # short for whatever runs next. Restoring to
+        # configured_worker_replicas() (rather than a hardcoded 3) means
+        # this stays correct even if docker-compose.yml's replica count
+        # ever changes. Safe to call even when kill() was never reached
+        # (e.g. the claiming worker was never identified): scaling to the
+        # already-current count is a no-op.
+        ctx.docker.scale_workers(ctx.docker.configured_worker_replicas())
 
     return report
 

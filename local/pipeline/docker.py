@@ -95,6 +95,21 @@ def scale_workers(n: int) -> None:
     _run(["docker", "compose", "up", "-d", "--scale", f"worker={n}"])
 
 
+# docker-compose.yml's worker service sets `deploy.replicas: 3` as its
+# steady-state replica count. Scenarios that scale workers up or down (e.g.
+# worker-kill, which kills one to simulate a crash) need that same number
+# to restore the stack afterward — reading it here via `docker compose
+# config` (which resolves the compose file, including any ${VAR}
+# interpolation, and prints it back as JSON) means the replica count has
+# exactly one place it's defined, docker-compose.yml itself, instead of
+# also being duplicated as a literal in scenario code that could drift out
+# of sync with it.
+def configured_worker_replicas() -> int:
+    out = _run(["docker", "compose", "config", "--format", "json"])
+    data = json.loads(out)
+    return int(data["services"]["worker"]["deploy"]["replicas"])
+
+
 # Every container in the compose stack (api, postgres, rabbitmq, minio,
 # workers) is attached to the same Docker network so they can reach each
 # other by service name. disconnect() rips a container off that network

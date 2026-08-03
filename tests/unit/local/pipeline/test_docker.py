@@ -131,6 +131,21 @@ def test_queue_depth_returns_zero_for_missing_queue(mocker):
     assert docker.queue_depth() == 0
 
 
+def test_configured_worker_replicas_reads_compose_config(mocker):
+    payload = json.dumps({"services": {"worker": {"deploy": {"replicas": 3}}}})
+    run = mocker.patch(
+        "pipeline.docker.subprocess.run", return_value=_fake_completed(payload)
+    )
+
+    assert docker.configured_worker_replicas() == 3
+    run.assert_called_once_with(
+        ["docker", "compose", "config", "--format", "json"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+
 def test_container_state_parses_inspect_output(mocker):
     payload = json.dumps(
         [
