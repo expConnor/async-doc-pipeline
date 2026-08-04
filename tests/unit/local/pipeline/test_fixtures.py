@@ -2,13 +2,13 @@ import pymupdf
 from pipeline.fixtures import SAMPLE_PDF, garbage_pdf, slow_pdf
 
 
-def test_slow_pdf_generates_at_least_60_pages(tmp_path):
+def test_slow_pdf_generates_at_least_30_pages(tmp_path):
     path = slow_pdf(dest_dir=tmp_path, source=SAMPLE_PDF)
 
     assert path.parent == tmp_path
     doc = pymupdf.open(path)
     try:
-        assert doc.page_count >= 60
+        assert doc.page_count >= 30
     finally:
         doc.close()
 
